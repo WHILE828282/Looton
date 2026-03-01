@@ -1,0 +1,106 @@
+export type Role = 'user' | 'seller' | 'trainee_arb' | 'arb' | 'senior_arb' | 'admin'
+
+export interface User {
+  id: number
+  username: string
+  role: Role
+  buyerRating: number
+  sellerRating: number
+  dealsCount: number
+  depositTon: number
+  depositStatus: 'none' | 'active' | 'withdrawal_pending'
+  withdrawalRequestedAt?: number
+  createdAt: number
+}
+
+export interface Game {
+  id: string
+  title: string
+  iconUrl?: string
+  tags: string[]
+}
+
+export type OfferCategory = 'currency' | 'items' | 'accounts' | 'services' | 'subscriptions' | 'gifts'
+
+export interface Offer {
+  id: string
+  gameId: string
+  category: OfferCategory
+  title: string
+  description: string
+  priceTon: number
+  stock?: number
+  deliveryType: 'instant' | 'manual'
+  payoutPolicy: 'instant_if_deposit' | 'hold_24h'
+  sellerId: number
+  sellerStats: { rating: number; deals: number; depositTon: number }
+  rules: { autoCloseHours: number; warrantyText: string }
+  createdAt: number
+}
+
+export type OrderStatus =
+  | 'created'
+  | 'paid'
+  | 'delivering'
+  | 'delivered'
+  | 'confirmed'
+  | 'auto_confirmed'
+  | 'disputed'
+  | 'resolved_buyer'
+  | 'resolved_seller'
+  | 'cancelled'
+
+export interface Order {
+  id: string
+  offerId: string
+  buyerId: number
+  sellerId: number
+  amountTon: number
+  feeTon: number
+  status: OrderStatus
+  createdAt: number
+  paidAt?: number
+  closedAt?: number
+  timers: { payUntil: number; confirmUntil: number }
+  chatLink?: string
+}
+
+export interface DisputeEvidence {
+  type: 'image' | 'video' | 'text' | 'link'
+  url: string
+  createdAt: number
+}
+
+export interface Dispute {
+  id: string
+  orderId: string
+  openedBy: 'buyer' | 'seller'
+  reasonCode: 'not_received' | 'invalid' | 'restored_account' | 'other'
+  message: string
+  evidence: DisputeEvidence[]
+  status:
+    | 'opened'
+    | 'assigned_trainee'
+    | 'trainee_decided'
+    | 'escalated_to_arb'
+    | 'arb_decided'
+    | 'escalated_to_senior'
+    | 'final_decided'
+    | 'closed'
+  assignedTo?: string
+  decision?: {
+    winner: 'buyer' | 'seller'
+    text: string
+    decidedBy: string
+    decidedAt: number
+    penalties?: string
+  }
+  appealCount: number
+}
+
+export interface StaffMetrics {
+  workerId: string
+  resolvedCount: number
+  warnings: number
+  level: 'trainee' | 'arb' | 'senior'
+}
