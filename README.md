@@ -54,6 +54,12 @@ Then remove old GitHub entries in **Windows Credential Manager** and retry `git 
 
 - This branch includes the latest MVP scaffold updates and is ready to merge into `main`.
 
+## PR #1 merge conflict resolution
+
+- Updated branch content to keep the latest agreed versions of: `.gitignore`, `src/lib/AppContext.tsx`, `src/pages/pages.tsx`, and `src/types.ts`.
+- Verified there are no conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) in tracked source files.
+- Verified project build passes after conflict resolution.
+
 ## Deployment (configured)
 
 - Production URL: `https://looton.vercel.app`
