@@ -22,7 +22,7 @@ window.Telegram?.WebApp?.expand()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <TonConnectUIProvider manifestUrl="https://looton.vercel.app/tonconnect-manifest.json">
+
       <AppProvider>
         <BrowserRouter>
           <App />

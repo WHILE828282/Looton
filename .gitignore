@@ -1,21 +1,3 @@
 node_modules/
 dist/
 .vite/
-
-# Build caches
-*.tsbuildinfo
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# OS / editor temp files
-.DS_Store
-Thumbs.db
-*.tmp
-*.temp
-*.swp
-*.swo

@@ -3,7 +3,6 @@ import { db } from './storage'
 import { calcFee, isInstantEligible } from './domain'
 import type { Dispute, Offer, Order, User } from '../types'
 
-type DisputeStatus = Dispute['status']
 
 type AppState = {
   user: User
@@ -91,19 +90,14 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     const available = disputes.filter((d) => ['opened', 'escalated_to_arb', 'escalated_to_senior'].includes(d.status) && !d.assignedTo)
     if (!available.length) return undefined
     const pick = available[Math.floor(Math.random() * available.length)]
-    const assignedStatus: DisputeStatus = pick.status === 'opened' ? 'assigned_trainee' : pick.status
-    const next: Dispute[] = disputes.map((d) => (d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d))
+
     setDisputes(next)
     db.setDisputes(next)
     return next.find((d) => d.id === pick.id)
   }
 
   const decideDispute = (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => {
-    const next: Dispute[] = disputes.map((d) => {
-      if (d.id !== disputeId) return d
-      return {
-        ...d,
-        status: (user.role === 'senior_arb' ? 'final_decided' : user.role === 'arb' ? 'arb_decided' : 'trainee_decided') as DisputeStatus,
+
         decision: { winner, text, decidedBy, decidedAt: Date.now() }
       }
     })
@@ -122,9 +116,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const appealDispute = (disputeId: string) => {
-    const next: Dispute[] = disputes.map((d) => {
-      if (d.id !== disputeId || d.appealCount >= 1) return d
-      const status: DisputeStatus = d.status === 'trainee_decided' ? 'escalated_to_arb' : d.status === 'arb_decided' ? 'escalated_to_senior' : d.status
+
       return { ...d, status, appealCount: d.appealCount + 1, assignedTo: undefined }
     })
     setDisputes(next)

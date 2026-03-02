@@ -41,15 +41,19 @@ export interface Offer {
 }
 
 export type OrderStatus =
+
   | 'created'
   | 'paid'
   | 'delivering'
+
   | 'delivered'
   | 'confirmed'
   | 'auto_confirmed'
+
   | 'disputed'
   | 'resolved_buyer'
   | 'resolved_seller'
+
   | 'cancelled'
 
 export interface Order {
@@ -81,12 +85,15 @@ export interface Dispute {
   message: string
   evidence: DisputeEvidence[]
   status:
+
     | 'opened'
     | 'assigned_trainee'
     | 'trainee_decided'
+
     | 'escalated_to_arb'
     | 'arb_decided'
     | 'escalated_to_senior'
+
     | 'final_decided'
     | 'closed'
   assignedTo?: string
