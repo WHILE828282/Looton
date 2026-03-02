@@ -50,6 +50,10 @@ cmdkey /list | findstr git:https://github.com
 Then remove old GitHub entries in **Windows Credential Manager** and retry `git push origin main`.
 
 
+## Main branch sync
+
+- This branch includes the latest MVP scaffold updates and is ready to merge into `main`.
+
 ## Deployment (configured)
 
 - Production URL: `https://looton.vercel.app`
