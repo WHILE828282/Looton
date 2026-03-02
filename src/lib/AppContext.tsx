@@ -3,6 +3,8 @@ import { db } from './storage'
 import { calcFee, isInstantEligible } from './domain'
 import type { Dispute, Offer, Order, User } from '../types'
 
+type DisputeStatus = Dispute['status']
+
 type AppState = {
   user: User
   offers: Offer[]
@@ -19,7 +21,10 @@ type AppState = {
 }
 
 const Context = createContext<AppState | null>(null)
+
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+
+const queueStatuses: readonly DisputeStatus[] = ['opened', 'escalated_to_arb', 'escalated_to_senior']
 
 export const AppProvider = ({ children }: PropsWithChildren) => {
   const [user, setUserState] = useState(db.getUser())
@@ -38,7 +43,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     db.setOffers(next)
   }
 
-  const createOrder = (offer: Offer) => {
+  const createOrder = (offer: Offer): Order => {
     const now = Date.now()
     const order: Order = {
       id: uid('ord'),
@@ -55,6 +60,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
         confirmUntil: now + offer.rules.autoCloseHours * 60 * 60 * 1000
       }
     }
+
     const next = [order, ...orders]
     setOrders(next)
     db.setOrders(next)
@@ -62,13 +68,14 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const updateOrder = (orderId: string, patch: Partial<Order>) => {
-    const next = orders.map((it) => (it.id === orderId ? { ...it, ...patch } : it))
+    const next = orders.map((item) => (item.id === orderId ? { ...item, ...patch } : item))
     setOrders(next)
     db.setOrders(next)
   }
 
-  const openDispute = (orderId: string, message: string, openedBy: 'buyer' | 'seller' = 'buyer') => {
+  const openDispute = (orderId: string, message: string, openedBy: 'buyer' | 'seller' = 'buyer'): Dispute => {
     updateOrder(orderId, { status: 'disputed' })
+
     const dispute: Dispute = {
       id: uid('disp'),
       orderId,
@@ -79,30 +86,50 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       status: 'opened',
       appealCount: 0
     }
+
     const next = [dispute, ...disputes]
     setDisputes(next)
     db.setDisputes(next)
     return dispute
   }
 
-  const assignRandomCase = (workerId: string) => {
-    const available = disputes.filter((d) => ['opened', 'escalated_to_arb', 'escalated_to_senior'].includes(d.status) && !d.assignedTo)
-    if (!available.length) return undefined
+  const assignRandomCase = (workerId: string): Dispute | undefined => {
+    const available = disputes.filter((d) => queueStatuses.includes(d.status) && !d.assignedTo)
+    if (!available.length) {
+      return undefined
+    }
+
     const pick = available[Math.floor(Math.random() * available.length)]
-    const assignedStatus = pick.status === 'opened' ? 'assigned_trainee' : pick.status
-    const next = disputes.map((d) => (d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d))
+    const assignedStatus: DisputeStatus = pick.status === 'opened' ? 'assigned_trainee' : pick.status
+
+    const next: Dispute[] = disputes.map((d) =>
+      d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d
+    )
+
     setDisputes(next)
     db.setDisputes(next)
+
     return next.find((d) => d.id === pick.id)
   }
 
   const decideDispute = (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => {
-    const next = disputes.map((d) => {
-      if (d.id !== disputeId) return d
+    const next: Dispute[] = disputes.map((d) => {
+      if (d.id !== disputeId) {
+        return d
+      }
+
+      const status: DisputeStatus =
+        user.role === 'senior_arb' ? 'final_decided' : user.role === 'arb' ? 'arb_decided' : 'trainee_decided'
+
       return {
         ...d,
-        status: user.role === 'senior_arb' ? 'final_decided' : user.role === 'arb' ? 'arb_decided' : 'trainee_decided',
-        decision: { winner, text, decidedBy, decidedAt: Date.now() }
+        status,
+        decision: {
+          winner,
+          text,
+          decidedBy,
+          decidedAt: Date.now()
+        }
       }
     })
 
@@ -110,6 +137,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     if (dispute) {
       const orderStatus = winner === 'buyer' ? 'resolved_buyer' : 'resolved_seller'
       updateOrder(dispute.orderId, { status: orderStatus, closedAt: Date.now() })
+
       if (winner === 'buyer' && isInstantEligible(user)) {
         setUser({ ...user, depositTon: Math.max(0, user.depositTon - 5) })
       }
@@ -120,11 +148,26 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const appealDispute = (disputeId: string) => {
-    const next = disputes.map((d) => {
-      if (d.id !== disputeId || d.appealCount >= 1) return d
-      const status = d.status === 'trainee_decided' ? 'escalated_to_arb' : d.status === 'arb_decided' ? 'escalated_to_senior' : d.status
-      return { ...d, status, appealCount: d.appealCount + 1, assignedTo: undefined }
+    const next: Dispute[] = disputes.map((d) => {
+      if (d.id !== disputeId || d.appealCount >= 1) {
+        return d
+      }
+
+      const status: DisputeStatus =
+        d.status === 'trainee_decided'
+          ? 'escalated_to_arb'
+          : d.status === 'arb_decided'
+            ? 'escalated_to_senior'
+            : d.status
+
+      return {
+        ...d,
+        status,
+        appealCount: d.appealCount + 1,
+        assignedTo: undefined
+      }
     })
+
     setDisputes(next)
     db.setDisputes(next)
   }
@@ -152,6 +195,9 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
 
 export const useApp = () => {
   const ctx = useContext(Context)
-  if (!ctx) throw new Error('AppContext missing')
+  if (!ctx) {
+    throw new Error('AppContext missing')
+  }
+
   return ctx
 }
