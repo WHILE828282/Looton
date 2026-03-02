@@ -39,6 +39,51 @@ const formatLeftMinutes = (confirmUntil: number) => {
   return `${left}m`
 }
 
+
+const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
+
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace('.jpg', '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace('.jpeg', '.jpg'))
+  } else {
+    candidates.push(`${normalized}.jpeg`)
+    candidates.push(`${normalized}.jpg`)
+    candidates.push(`${normalized}/cover.jpeg`)
+    candidates.push(`${normalized}/cover.jpg`)
+  }
+
+  candidates.push('/icon.svg')
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = iconCandidates(src)
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[0]}
+      alt={alt}
+      loading="lazy"
+      data-fallback-index="0"
+      onError={(event) => {
+        const currentIndex = Number(event.currentTarget.dataset.fallbackIndex ?? '0')
+        const nextIndex = currentIndex + 1
+
+        if (nextIndex < candidates.length) {
+          event.currentTarget.dataset.fallbackIndex = String(nextIndex)
+          event.currentTarget.src = candidates[nextIndex]
+        }
+      }}
+    />
+  )
+}
+
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
