@@ -1,0 +1,10 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'>
+  <rect width='256' height='256' rx='22' fill='#f89a18'/>
+  <path d='M44 210h212v46H44z' fill='#f2e6c5' opacity='.95'/>
+  <g fill='none' stroke='#e08510' stroke-width='2' opacity='.5'>
+    <path d='M70 30l-20 70'/><path d='M85 30l-20 70'/><path d='M100 30l-20 70'/>
+    <path d='M180 152l-20 70'/><path d='M195 152l-20 70'/><path d='M210 152l-20 70'/>
+  </g>
+  <text x='46' y='145' font-size='72' font-family='Arial Black, Arial' fill='#1f2c54'>CS</text>
+  <text x='152' y='145' font-size='72' font-family='Arial Black, Arial' fill='#ffffff' stroke='#1f2c54' stroke-width='3'>2</text>
+</svg>
