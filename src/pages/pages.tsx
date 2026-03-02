@@ -116,11 +116,10 @@ export const HomePage = () => {
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
           {trending.map((offer) => {
-            const iconSrc = gameIconSrc(offer.gameId)
             const game = games.find((g) => g.id === offer.gameId)
             return (
               <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
-                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
+                <img src={game?.iconUrl ?? '/icon.svg'} alt={game?.title ?? 'Game'} />
                 <span>{offer.title}</span>
               </Link>
             )
@@ -134,7 +133,7 @@ export const HomePage = () => {
           <div className="portal-list">
             {popularAccounts.map((item) => (
               <Link key={item.id} className="portal-link" to={item.to}>
-                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <img src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
                 <span>{item.title}</span>
               </Link>
             ))}
@@ -146,7 +145,7 @@ export const HomePage = () => {
           <div className="portal-list">
             {popularCurrencies.map((item) => (
               <Link key={item.id} className="portal-link" to={item.to}>
-                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <img src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
                 <span>{item.title}</span>
               </Link>
             ))}
@@ -161,7 +160,7 @@ export const HomePage = () => {
             const game = games[categories.indexOf(c) % games.length]
             return (
               <Link key={c} className="portal-link" to={`/game/${game.id}/offers/${c}`}>
-                <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={c} />
+                <img src={game.iconUrl ?? '/icon.svg'} alt={c} />
                 <span>{c}</span>
               </Link>
             )
@@ -191,7 +190,7 @@ export const GamePage = () => {
         <h3>Categories</h3>
         {categories.map((c) => (
           <Link className="portal-link" key={c} to={`/game/${game.id}/offers/${c}`}>
-            <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
+            <img src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
             <span>{c}</span>
           </Link>
         ))}
