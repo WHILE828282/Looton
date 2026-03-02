@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
