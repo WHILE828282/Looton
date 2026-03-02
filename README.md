@@ -50,31 +50,6 @@ cmdkey /list | findstr git:https://github.com
 Then remove old GitHub entries in **Windows Credential Manager** and retry `git push origin main`.
 
 
-## Main branch sync
-
-- This branch includes the latest MVP scaffold updates and is ready to merge into `main`.
-
-## PR #1 merge conflict resolution
-
-- Updated branch content to keep the latest agreed versions of: `.gitignore`, `src/lib/AppContext.tsx`, `src/pages/pages.tsx`, and `src/types.ts`.
-- Verified there are no conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) in tracked source files.
-- Verified project build passes after conflict resolution.
-
-## Merge conflict resolution status (PR #1)
-
-Conflicts were resolved using the latest code from this branch for these files:
-- `.gitignore`
-- `README.md`
-- `src/lib/AppContext.tsx`
-- `src/main.tsx`
-- `src/pages/pages.tsx`
-- `src/styles.css`
-- `src/types.ts`
-
-Validation commands used:
-- `rg -n "^(<<<<<<<|=======|>>>>>>>)" .`
-- `npm run build`
-
 ## Deployment (configured)
 
 - Production URL: `https://looton.vercel.app`
