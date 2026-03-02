@@ -5,7 +5,17 @@ import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { Offer, OrderStatus, Role } from '../types'
+import type { Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+
+type SellForm = {
+  gameId: string
+  category: OfferCategory
+  title: string
+  description: string
+  priceTon: number
+  deliveryType: OfferDeliveryType
+  payoutPolicy: OfferPayoutPolicy
+}
 
 const statusTone: Record<OrderStatus, 'neutral' | 'ok' | 'warn' | 'danger'> = {
   created: 'neutral',
@@ -239,15 +249,7 @@ export const SellPage = () => {
 export const SellNewPage = () => {
   const { addOffer, user } = useApp()
   const nav = useNavigate()
-  const [form, setForm] = useState<{
-    gameId: string
-    category: typeof categories[number]
-    title: string
-    description: string
-    priceTon: number
-    deliveryType: 'instant' | 'manual'
-    payoutPolicy: 'instant_if_deposit' | 'hold_24h'
-  }>({
+  const [form, setForm] = useState<SellForm>({
     gameId: games[0].id,
     category: categories[0],
     title: '',
@@ -261,15 +263,15 @@ export const SellNewPage = () => {
     <div className="stack">
       <h3>Create Offer Wizard</h3>
       <select className="input" value={form.gameId} onChange={(e) => setForm({ ...form, gameId: e.target.value })}>{games.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}</select>
-      <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as typeof categories[number] })}>{categories.map((c) => <option key={c}>{c}</option>)}</select>
+      <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as OfferCategory })}>{categories.map((c) => <option key={c}>{c}</option>)}</select>
       <input className="input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
       <textarea className="input" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
       <input className="input" type="number" min="1" value={form.priceTon} onChange={(e) => setForm({ ...form, priceTon: Number(e.target.value) })} />
-      <select className="input" value={form.deliveryType} onChange={(e) => setForm({ ...form, deliveryType: e.target.value as 'instant' | 'manual' })}>
+      <select className="input" value={form.deliveryType} onChange={(e) => setForm({ ...form, deliveryType: e.target.value as OfferDeliveryType })}>
         <option value="instant">instant</option>
         <option value="manual">manual</option>
       </select>
-      <select className="input" value={form.payoutPolicy} onChange={(e) => setForm({ ...form, payoutPolicy: e.target.value as 'instant_if_deposit' | 'hold_24h' })}>
+      <select className="input" value={form.payoutPolicy} onChange={(e) => setForm({ ...form, payoutPolicy: e.target.value as OfferPayoutPolicy })}>
         <option value="instant_if_deposit">instant_if_deposit</option>
         <option value="hold_24h">hold_24h</option>
       </select>

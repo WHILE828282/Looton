@@ -21,6 +21,8 @@ export interface Game {
 }
 
 export type OfferCategory = 'currency' | 'items' | 'accounts' | 'services' | 'subscriptions' | 'gifts'
+export type OfferDeliveryType = 'instant' | 'manual'
+export type OfferPayoutPolicy = 'instant_if_deposit' | 'hold_24h'
 
 export interface Offer {
   id: string
@@ -30,8 +32,8 @@ export interface Offer {
   description: string
   priceTon: number
   stock?: number
-  deliveryType: 'instant' | 'manual'
-  payoutPolicy: 'instant_if_deposit' | 'hold_24h'
+  deliveryType: OfferDeliveryType
+  payoutPolicy: OfferPayoutPolicy
   sellerId: number
   sellerStats: { rating: number; deals: number; depositTon: number }
   rules: { autoCloseHours: number; warrantyText: string }

@@ -92,7 +92,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     if (!available.length) return undefined
     const pick = available[Math.floor(Math.random() * available.length)]
     const assignedStatus: DisputeStatus = pick.status === 'opened' ? 'assigned_trainee' : pick.status
-    const next = disputes.map((d) => (d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d))
+    const next: Dispute[] = disputes.map((d) => (d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d))
     setDisputes(next)
     db.setDisputes(next)
     return next.find((d) => d.id === pick.id)
