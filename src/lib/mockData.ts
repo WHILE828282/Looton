@@ -15,10 +15,9 @@ export const mockUser: User = {
 }
 
 export const games: Game[] = [
-  { id: 'mlbb', title: 'Mobile Legends', iconUrl: '/games/mlbb/cover.jpeg', tags: ['MOBA', 'Top-up'] },
-  { id: 'gta5', title: 'GTA 5', iconUrl: '/games/gta5/cover.jpeg', tags: ['Accounts', 'Boost'] },
-  { id: 'cs2', title: 'CS2', iconUrl: '/games/cs2/cover.jpeg', tags: ['Skins', 'Prime'] },
-  { id: 'pubg', title: 'PUBG Mobile', iconUrl: '/games/pubg/cover.jpg', tags: ['Battle Royale', 'UC'] }
+  { id: 'mlbb', title: 'Mobile Legends', iconUrl: '/games/mlbb.svg', tags: ['MOBA', 'Top-up'] },
+  { id: 'gta5', title: 'GTA 5', iconUrl: '/games/gta5.svg', tags: ['Accounts', 'Boost'] },
+  { id: 'cs2', title: 'CS2', iconUrl: '/games/cs2.svg', tags: ['Skins', 'Prime'] }
 ]
 
 export const defaultOffers: Offer[] = [
