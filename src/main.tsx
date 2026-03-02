@@ -2,27 +2,16 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { TonConnectUIProvider } from '@tonconnect/ui-react'
-import App from './App'
 import { AppProvider } from './lib/AppContext'
-import './styles.css'
+import { App } from './App'
+import './index.css'
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        ready: () => void
-        expand: () => void
-      }
-    }
-  }
-}
-
-window.Telegram?.WebApp?.ready()
-window.Telegram?.WebApp?.expand()
+// URL манифеста для TON Connect
+const manifestUrl = 'https://raw.githubusercontent.com';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <TonConnectUIProvider manifestUrl="https://example.com/tonconnect-manifest.json">
+    <TonConnectUIProvider manifestUrl={manifestUrl}>
       <AppProvider>
         <BrowserRouter>
           <App />
