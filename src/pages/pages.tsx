@@ -39,6 +39,51 @@ const formatLeftMinutes = (confirmUntil: number) => {
   return `${left}m`
 }
 
+
+const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
+
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace('.jpg', '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace('.jpeg', '.jpg'))
+  } else {
+    candidates.push(`${normalized}.jpeg`)
+    candidates.push(`${normalized}.jpg`)
+    candidates.push(`${normalized}/cover.jpeg`)
+    candidates.push(`${normalized}/cover.jpg`)
+  }
+
+  candidates.push('/icon.svg')
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = iconCandidates(src)
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[0]}
+      alt={alt}
+      loading="lazy"
+      data-fallback-index="0"
+      onError={(event) => {
+        const currentIndex = Number(event.currentTarget.dataset.fallbackIndex ?? '0')
+        const nextIndex = currentIndex + 1
+
+        if (nextIndex < candidates.length) {
+          event.currentTarget.dataset.fallbackIndex = String(nextIndex)
+          event.currentTarget.src = candidates[nextIndex]
+        }
+      }}
+    />
+  )
+}
+
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
@@ -49,32 +94,79 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 
 export const HomePage = () => {
   const { offers } = useApp()
+  const trending = offers.slice(0, 6)
+  const popularAccounts = games.map((g) => ({
+    id: g.id,
+    title: `${g.title} Accounts`,
+    to: `/game/${g.id}`,
+    iconUrl: g.iconUrl
+  }))
+  const popularCurrencies = games.map((g) => ({
+    id: `${g.id}-currency`,
+    title: `${g.title} Currency`,
+    to: `/game/${g.id}/offers/currency`,
+    iconUrl: g.iconUrl
+  }))
 
   return (
     <div className="stack">
       <input className="input" placeholder="Search games, offers, sellers" />
 
       <Card>
-        <h3>Popular games</h3>
-        <div className="chips">
-          {games.map((g) => (
-            <Link key={g.id} className="chip" to={`/game/${g.id}`}>
-              {g.title}
-            </Link>
-          ))}
+        <h3>Trending 🔥</h3>
+        <div className="trending-scroll">
+          {trending.map((offer) => {
+            const iconSrc = gameIconSrc(offer.gameId)
+            const game = games.find((g) => g.id === offer.gameId)
+            return (
+              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
+                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
+                <span>{offer.title}</span>
+              </Link>
+            )
+          })}
         </div>
       </Card>
 
-      <Card>
-        <h3>Categories</h3>
-        <div className="chips">{categories.map((c) => <span key={c} className="chip">{c}</span>)}</div>
-      </Card>
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Accounts</h3>
+          <div className="portal-list">
+            {popularAccounts.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Currencies</h3>
+          <div className="portal-list">
+            {popularCurrencies.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       <Card>
-        <h3>Top sellers</h3>
-        {offers.slice(0, 3).map((o) => (
-          <p key={o.id}>⭐ {o.sellerStats.rating} · {o.sellerStats.deals} deals · {o.sellerStats.depositTon} TON deposit</p>
-        ))}
+        <h3>Categories</h3>
+        <div className="portal-list">
+          {categories.map((c) => {
+            const game = games[categories.indexOf(c) % games.length]
+            return (
+              <Link key={c} className="portal-link" to={`/game/${game.id}/offers/${c}`}>
+                <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={c} />
+                <span>{c}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
       <Card>
@@ -97,7 +189,12 @@ export const GamePage = () => {
       <div className="chips">{game.tags.map((t) => <span className="chip" key={t}>{t}</span>)}</div>
       <Card>
         <h3>Categories</h3>
-        {categories.map((c) => <Link className="row" key={c} to={`/game/${game.id}/offers/${c}`}>{c}</Link>)}
+        {categories.map((c) => (
+          <Link className="portal-link" key={c} to={`/game/${game.id}/offers/${c}`}>
+            <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
+            <span>{c}</span>
+          </Link>
+        ))}
       </Card>
     </div>
   )
