@@ -1,8 +1,0 @@
-<svg width="200" height="100" viewBox="0 0 200 100" xmlns="http://www.w3.org">
-  <!-- Фон -->
-  <rect width="200" height="100" fill="#F7941D""")/>>
-  <!-- Текст CS (наклонный) -->
-  <text x="30" y="70" font-family="Arial, sans-serif" font-weight="bold" font-style="italic" font-size="60" fill="#1A1B23">CS</text>
-  <!-- Текст 2 (контурный) -->
-  <text x="120" y="70" font-family="Arial, sans-serif" font-weight="bold" font-style="italic" font-size="60" fill="none" stroke="white" stroke-width="3">2</text>
-</svg>
