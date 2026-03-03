@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
@@ -140,7 +140,12 @@ export const HomePage = () => {
   const nav = useNavigate()
   const [query, setQuery] = useState('')
 
-  const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
+  const trendingSections = [
+    { id: 'accounts', title: 'Popular Accounts', to: '/game/mlbb/offers/accounts', iconUrl: gameIconSrc('mlbb') },
+    { id: 'currency', title: 'Popular Currencies', to: '/game/mlbb/offers/currency', iconUrl: gameIconSrc('mlbb') },
+    { id: 'items', title: 'Popular Items', to: '/game/cs2/offers/items', iconUrl: gameIconSrc('cs2') },
+    { id: 'services', title: 'Popular Boosting', to: '/game/gta5/offers/services', iconUrl: gameIconSrc('gta5') }
+  ]
   const trustStats = [
     { label: 'Deals 24h', value: '1,200+' },
     { label: 'Verified sellers', value: '340+' },
@@ -235,16 +240,12 @@ export const HomePage = () => {
       <Card>
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
-          {trending.map((offer) => {
-            const iconSrc = gameIconSrc(offer.gameId)
-            const game = games.find((g) => g.id === offer.gameId)
-            return (
-              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
-                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
-                <span>{offer.title}</span>
-              </Link>
-            )
-          })}
+          {trendingSections.map((section) => (
+            <Link key={section.id} className="trending-item" to={section.to}>
+              <GameIcon src={section.iconUrl} alt={section.title} />
+              <span>{section.title}</span>
+            </Link>
+          ))}
         </div>
       </Card>
 
@@ -533,8 +534,9 @@ export const OrderDetailsPage = () => {
 
 export const ChatPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, offers, chatMessages, sendOrderMessage, openDispute } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute, joinDisputeChat } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState('')
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -547,7 +549,30 @@ export const ChatPage = () => {
   if (!order) return <p>Order not found</p>
 
   const offer = offers.find((item) => item.id === order.offerId)
-  const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const requestedDisputeId = searchParams.get('dispute') ?? ''
+  const activeDispute = disputes.find((item) => {
+    if (item.orderId !== order.id) return false
+    if (!requestedDisputeId) return ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(item.status)
+    return item.id === requestedDisputeId
+  })
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const canModerateChat = isArbitrator && Boolean(activeDispute && activeDispute.assignedTo === String(user.id))
+  const isParticipant = user.id === order.buyerId || user.id === order.sellerId
+  const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
+  const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+
+  if (!canAccessChat) {
+    return (
+      <div className="stack">
+        <Card>
+          <h3>Chat access restricted</h3>
+          <p>This chat is available only to the assigned arbitrator (for staff) or to buyer/seller (for regular users).</p>
+          <Link className="btn" to={isArbitrator ? '/staff/queue' : '/orders'}>Go back</Link>
+        </Card>
+      </div>
+    )
+  }
+
   const paidStatuses: OrderStatus[] = [
     'paid',
     'delivering',
@@ -569,8 +594,8 @@ export const ChatPage = () => {
     .sort((a, b) => a.createdAt - b.createdAt)
 
   const sellerName = `seller_${order.sellerId}`
-  const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
-  const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
+  const peerName = canModerateChat ? 'Dispute room' : sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
+  const peerSubtitle = canModerateChat ? 'Buyer and seller online' : sender === 'buyer' ? 'Seller online' : 'Buyer online'
 
 
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
@@ -582,7 +607,11 @@ export const ChatPage = () => {
 
   const lastNotifiedKey = `looton_last_notified_${order.id}`
 
-
+  useEffect(() => {
+    if (!canModerateChat || !activeDispute) return
+    const alias = activeDispute.arbitratorAlias || `arb_${user.id}`
+    joinDisputeChat(activeDispute.id, alias)
+  }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
   useEffect(() => {
     const saved = localStorage.getItem(`looton_notifications_${order.id}`)
@@ -681,12 +710,12 @@ export const ChatPage = () => {
                   }}>
                     {chatBlocked ? 'Unblock user' : 'Block user'}
                   </button>
-                  <button className="chat-menu-item" onClick={() => {
+                  {!canModerateChat && <button className="chat-menu-item" onClick={() => {
                     setReportOpen(true)
                     setMenuOpen(false)
                   }}>
                     Report user
-                  </button>
+                  </button>}
                 </div>
               )}
             </div>
@@ -697,7 +726,7 @@ export const ChatPage = () => {
           {messages.length ? messages.map((message) => (
             <div key={message.id} className={`chat-bubble ${message.sender}`}>
               <small>
-                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}
+                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : message.sender === 'seller' ? 'Seller' : `Arbitrator ${message.arbAlias ?? ''}`.trim()}
                 {' · '}
                 {new Date(message.createdAt).toLocaleString()}
               </small>
@@ -721,7 +750,7 @@ export const ChatPage = () => {
               <button className="chip active" onClick={() => {
                 if (!window.confirm(DISPUTE_POLICY)) return
                 const details = reportDetails.trim() || `Reason: ${reportReason}`
-                const dispute = openDispute(order.id, details, sender, reportReason)
+                const dispute = openDispute(order.id, details, sender === 'seller' ? 'seller' : 'buyer', reportReason)
                 setReportOpen(false)
                 setReportDetails('')
                 nav(`/dispute/${dispute.id}`)
@@ -734,7 +763,7 @@ export const ChatPage = () => {
         <div className="chat-composer">
           <textarea
             className="input"
-            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : 'Write a message...'}
+            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
             value={draft}
             disabled={chatBlocked}
             onChange={(event) => setDraft(event.target.value)}
@@ -743,7 +772,7 @@ export const ChatPage = () => {
             className="btn"
             disabled={chatBlocked}
             onClick={() => {
-              sendOrderMessage(order.id, sender, draft)
+              sendOrderMessage(order.id, sender, draft, sender === 'arb' ? (activeDispute?.arbitratorAlias || `arb_${user.id}`) : undefined)
               setDraft('')
             }}
           >
@@ -757,6 +786,14 @@ export const ChatPage = () => {
         <p>Offer: {offer?.title ?? order.offerId}</p>
         <p>Amount: {order.amountTon} TON</p>
         <p>Status: {order.status}</p>
+        {canModerateChat && (
+          <>
+            <p>Game: {games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'}</p>
+            <p>Category: {offer?.category ?? '-'}</p>
+            <p>Dispute reason: {activeDispute?.reasonCode ?? '-'}</p>
+            <p>Dispute details: {activeDispute?.message ?? '-'}</p>
+          </>
+        )}
         {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
         {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
         <p>Escrow: active until order completion.</p>
@@ -768,24 +805,42 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, chatMessages } = useApp()
+  const { user, orders, offers, disputes, chatMessages } = useApp()
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
 
-  const relatedOrders = orders
-    .filter((order) => order.buyerId === user.id || order.sellerId === user.id)
+  const accessibleOrders = orders.filter((order) => {
+    if (!isArbitrator) {
+      return order.buyerId === user.id || order.sellerId === user.id
+    }
+
+    return disputes.some((dispute) =>
+      dispute.orderId === order.id &&
+      dispute.assignedTo === String(user.id) &&
+      ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(dispute.status)
+    )
+  })
+
+  const relatedOrders = accessibleOrders
     .map((order) => {
       const offer = offers.find((item) => item.id === order.offerId)
+      const orderDispute = disputes.find((dispute) =>
+        dispute.orderId === order.id &&
+        (dispute.assignedTo === String(user.id) || order.buyerId === user.id || order.sellerId === user.id)
+      )
       const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
       const orderMessages = chatMessages
         .filter((message) => message.orderId === order.id)
         .sort((a, b) => b.createdAt - a.createdAt)
       const latestMessage = orderMessages[0]
+      const chatLink = orderDispute ? `/order/${order.id}/chat?dispute=${orderDispute.id}` : `/order/${order.id}/chat`
 
       return {
         order,
         title: offer?.title ?? order.offerId,
-        peer: `User ${peerId}`,
+        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `User ${peerId}`,
         preview: latestMessage?.text ?? 'No messages yet',
-        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—'
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—',
+        chatLink
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
@@ -794,16 +849,17 @@ export const MessagesPage = () => {
     <div className="stack">
       <Card>
         <h3>Messages</h3>
-        <p>All chat threads with buyers and sellers.</p>
+        <p>{isArbitrator ? 'Assigned dispute chats. Open queue if list is empty.' : 'All chat threads with buyers and sellers.'}</p>
       </Card>
       <Card>
+        {isArbitrator && <Link className="btn secondary" to="/staff/queue">Open arbitrator queue</Link>}
         {relatedOrders.length ? relatedOrders.map((item) => (
-          <Link key={item.order.id} className="row" to={`/order/${item.order.id}/chat`}>
+          <Link key={item.order.id} className="row" to={item.chatLink}>
             <strong>{item.title}</strong>
             <small>{item.peer} · {item.time}</small>
             <span>{item.preview}</span>
           </Link>
-        )) : <p>No conversations yet</p>}
+        )) : <p>{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet'}</p>}
       </Card>
     </div>
   )
@@ -873,7 +929,7 @@ export const SellNewPage = () => {
 }
 
 export const DisputesPage = () => {
-  const { disputes, orders, user, assignRandomCase } = useApp()
+  const { disputes, orders, offers, user, assignRandomCase } = useApp()
   const [tab, setTab] = useState<'active' | 'closed' | 'all'>('active')
   const [searching, setSearching] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -890,7 +946,8 @@ export const DisputesPage = () => {
 
   const mine = disputes.filter((d) => {
     const order = orders.find((o) => o.id === d.orderId)
-    return order ? order.buyerId === user.id || order.sellerId === user.id : true
+    if (!order) return false
+    return order.buyerId === user.id || order.sellerId === user.id
   })
 
   const arbPool = disputes.filter((d) => {
@@ -947,7 +1004,16 @@ export const DisputesPage = () => {
       )}
 
       <Card>
-        {visible.length ? visible.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}><strong>{d.reasonCode}</strong><small>{d.status}</small></Link>) : <p>No disputes in this view.</p>}
+        {visible.length ? visible.map((d) => {
+          const order = orders.find((item) => item.id === d.orderId)
+          const offer = offers.find((item) => item.id === order?.offerId)
+          return (
+            <Link className="row" to={`/dispute/${d.id}`} key={d.id}>
+              <strong>{offer?.title ?? `Order #${d.orderId.slice(-6)}`}</strong>
+              <small>{d.reasonCode} · {d.status}</small>
+            </Link>
+          )
+        }) : <p>No disputes in this view.</p>}
       </Card>
     </div>
   )
@@ -1089,7 +1155,7 @@ export const StaffQueuePage = () => {
 
 export const StaffCasePage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, decideDispute, user } = useApp()
+  const { disputes, orders, offers, decideDispute, user } = useApp()
   const nav = useNavigate()
   const d = disputes.find((x) => x.id === disputeId)
   const [winner, setWinner] = useState<'buyer' | 'seller'>('buyer')
@@ -1097,22 +1163,54 @@ export const StaffCasePage = () => {
 
   if (!d) return <p>Case not found</p>
 
+  const order = orders.find((item) => item.id === d.orderId)
+  const offer = offers.find((item) => item.id === order?.offerId)
+  const gameTitle = games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'
+  const canReviewCase = d.assignedTo === String(user.id)
+  const decisionLocked = ['trainee_decided', 'arb_decided', 'final_decided', 'closed'].includes(d.status)
+
+  if (!canReviewCase) {
+    return (
+      <div className="stack">
+        <Card>
+          <h3>Case access restricted</h3>
+          <p>This dispute is not assigned to you.</p>
+          <Link className="btn" to="/staff/queue">Back to queue</Link>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="stack">
       <Card>
         <h3>Anonymous case {d.id}</h3>
         <p>Order reference: #{d.orderId.slice(-6)}</p>
-        <p>Description: {d.message}</p>
+        <p>Game: {gameTitle}</p>
+        <p>Category: {offer?.category ?? '-'}</p>
+        <p>What was bought: {offer?.title ?? order?.offerId ?? '-'}</p>
+        <p>Description: {offer?.description ?? '-'}</p>
+        <p>Claim details: {d.message}</p>
         {d.evidence.map((e, i) => <p key={i}>{e.type}: {e.url}</p>)}
       </Card>
       <div className="chips">
-        <button className="chip" onClick={() => setWinner('buyer')}>Buyer wins</button>
-        <button className="chip" onClick={() => setWinner('seller')}>Seller wins</button>
+        <button className={`chip ${winner === 'buyer' ? 'active' : ''}`} onClick={() => setWinner('buyer')}>Buyer wins</button>
+        <button className={`chip ${winner === 'seller' ? 'active' : ''}`} onClick={() => setWinner('seller')}>Seller wins</button>
+        <Link className="chip" to={`/order/${d.orderId}/chat?dispute=${d.id}`}>Join dispute chat</Link>
       </div>
-      <textarea className="input" placeholder="Decision text" value={text} onChange={(e) => setText(e.target.value)} />
-      <button className="btn" onClick={() => { decideDispute(d.id, winner, text || 'Decision submitted', String(user.id)); nav('/staff') }}>
+      <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} disabled={decisionLocked} />
+      <button className="btn" disabled={decisionLocked} onClick={() => {
+        const decisionText = text.trim()
+        if (decisionText.length < 30) {
+          window.alert('Please provide a detailed explanation (at least 30 characters).')
+          return
+        }
+        decideDispute(d.id, winner, decisionText, String(user.id))
+        nav('/staff')
+      }}>
         Submit decision
       </button>
+      {decisionLocked && <p>Decision already submitted for this case.</p>}
     </div>
   )
 }

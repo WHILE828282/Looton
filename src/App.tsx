@@ -34,6 +34,7 @@ export default function App() {
         <Route path="/checkout/:offerId" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/chats" element={<MessagesPage />} />
         <Route path="/order/:orderId" element={<OrderDetailsPage />} />
         <Route path="/order/:orderId/chat" element={<ChatPage />} />
         <Route path="/sell" element={<SellPage />} />
