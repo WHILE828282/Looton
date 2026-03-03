@@ -20,7 +20,8 @@ type AppState = {
   decideDispute: (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => void
   appealDispute: (disputeId: string) => void
   cancelDispute: (disputeId: string) => void
-  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller', text: string) => void
+  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller' | 'arb', text: string, arbAlias?: string) => void
+  joinDisputeChat: (disputeId: string, arbAlias: string) => void
 }
 
 const Context = createContext<AppState | null>(null)
@@ -247,7 +248,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     })
   }
 
-  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller', text: string) => {
+  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller' | 'arb', text: string, arbAlias?: string) => {
     const message = text.trim()
     if (!message) return
 
@@ -256,7 +257,36 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       orderId,
       sender,
       text: message,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      arbAlias: sender === 'arb' ? (arbAlias?.trim() || 'Arbitrator') : undefined
+    })
+  }
+
+  const joinDisputeChat = (disputeId: string, arbAlias: string) => {
+    const target = disputes.find((item) => item.id === disputeId)
+    if (!target) return
+
+    const alias = arbAlias.trim() || 'Arbitrator'
+
+    const joinEventText = `⚖️ Arbitrator ${alias} joined the dispute chat.`
+    const alreadyJoined = chatMessages.some(
+      (item) => item.orderId === target.orderId && item.sender === 'system' && item.text === joinEventText
+    )
+
+    if (!alreadyJoined) {
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: target.orderId,
+        sender: 'system',
+        text: joinEventText,
+        createdAt: Date.now()
+      })
+    }
+
+    setDisputes((prev) => {
+      const next = prev.map((item) => (item.id === disputeId ? { ...item, arbitratorAlias: alias } : item))
+      db.setDisputes(next)
+      return next
     })
   }
 
@@ -276,7 +306,8 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       decideDispute,
       appealDispute,
       cancelDispute,
-      sendOrderMessage
+      sendOrderMessage,
+      joinDisputeChat
     }),
     [user, offers, orders, disputes, chatMessages]
   )

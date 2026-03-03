@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
@@ -138,6 +138,7 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 export const HomePage = () => {
   const { offers, user } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
 
   const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
@@ -438,6 +439,7 @@ export const CheckoutPage = () => {
   const { offers, createOrder } = useApp()
   const { offerId = '' } = useParams()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const offer = offers.find((o) => o.id === offerId)
   const [connected, setConnected] = useState(false)
 
@@ -533,8 +535,9 @@ export const OrderDetailsPage = () => {
 
 export const ChatPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, offers, chatMessages, sendOrderMessage, openDispute } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute, joinDisputeChat } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState('')
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -547,7 +550,15 @@ export const ChatPage = () => {
   if (!order) return <p>Order not found</p>
 
   const offer = offers.find((item) => item.id === order.offerId)
-  const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const requestedDisputeId = searchParams.get('dispute') ?? ''
+  const activeDispute = disputes.find((item) => {
+    if (item.orderId !== order.id) return false
+    if (!requestedDisputeId) return ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(item.status)
+    return item.id === requestedDisputeId
+  })
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const canModerateChat = isArbitrator && Boolean(activeDispute && activeDispute.assignedTo === String(user.id))
+  const sender: ChatMessage['sender'] = canModerateChat ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
   const paidStatuses: OrderStatus[] = [
     'paid',
     'delivering',
@@ -569,8 +580,8 @@ export const ChatPage = () => {
     .sort((a, b) => a.createdAt - b.createdAt)
 
   const sellerName = `seller_${order.sellerId}`
-  const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
-  const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
+  const peerName = canModerateChat ? 'Dispute room' : sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
+  const peerSubtitle = canModerateChat ? 'Buyer and seller online' : sender === 'buyer' ? 'Seller online' : 'Buyer online'
 
 
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
@@ -582,7 +593,11 @@ export const ChatPage = () => {
 
   const lastNotifiedKey = `looton_last_notified_${order.id}`
 
-
+  useEffect(() => {
+    if (!canModerateChat || !activeDispute) return
+    const alias = activeDispute.arbitratorAlias || `arb_${user.id}`
+    joinDisputeChat(activeDispute.id, alias)
+  }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
   useEffect(() => {
     const saved = localStorage.getItem(`looton_notifications_${order.id}`)
@@ -681,12 +696,12 @@ export const ChatPage = () => {
                   }}>
                     {chatBlocked ? 'Unblock user' : 'Block user'}
                   </button>
-                  <button className="chat-menu-item" onClick={() => {
+                  {!canModerateChat && <button className="chat-menu-item" onClick={() => {
                     setReportOpen(true)
                     setMenuOpen(false)
                   }}>
                     Report user
-                  </button>
+                  </button>}
                 </div>
               )}
             </div>
@@ -697,7 +712,7 @@ export const ChatPage = () => {
           {messages.length ? messages.map((message) => (
             <div key={message.id} className={`chat-bubble ${message.sender}`}>
               <small>
-                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}
+                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : message.sender === 'seller' ? 'Seller' : `Arbitrator ${message.arbAlias ?? ''}`.trim()}
                 {' · '}
                 {new Date(message.createdAt).toLocaleString()}
               </small>
@@ -721,7 +736,7 @@ export const ChatPage = () => {
               <button className="chip active" onClick={() => {
                 if (!window.confirm(DISPUTE_POLICY)) return
                 const details = reportDetails.trim() || `Reason: ${reportReason}`
-                const dispute = openDispute(order.id, details, sender, reportReason)
+                const dispute = openDispute(order.id, details, sender === 'seller' ? 'seller' : 'buyer', reportReason)
                 setReportOpen(false)
                 setReportDetails('')
                 nav(`/dispute/${dispute.id}`)
@@ -734,7 +749,7 @@ export const ChatPage = () => {
         <div className="chat-composer">
           <textarea
             className="input"
-            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : 'Write a message...'}
+            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
             value={draft}
             disabled={chatBlocked}
             onChange={(event) => setDraft(event.target.value)}
@@ -743,7 +758,7 @@ export const ChatPage = () => {
             className="btn"
             disabled={chatBlocked}
             onClick={() => {
-              sendOrderMessage(order.id, sender, draft)
+              sendOrderMessage(order.id, sender, draft, activeDispute?.arbitratorAlias || `arb_${user.id}`)
               setDraft('')
             }}
           >
@@ -757,6 +772,14 @@ export const ChatPage = () => {
         <p>Offer: {offer?.title ?? order.offerId}</p>
         <p>Amount: {order.amountTon} TON</p>
         <p>Status: {order.status}</p>
+        {canModerateChat && (
+          <>
+            <p>Game: {games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'}</p>
+            <p>Category: {offer?.category ?? '-'}</p>
+            <p>Dispute reason: {activeDispute?.reasonCode ?? '-'}</p>
+            <p>Dispute details: {activeDispute?.message ?? '-'}</p>
+          </>
+        )}
         {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
         {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
         <p>Escrow: active until order completion.</p>
@@ -820,6 +843,7 @@ export const SellPage = () => {
 export const SellNewPage = () => {
   const { addOffer, user } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState<SellForm>({
     gameId: games[0].id,
     category: categories[0],
@@ -879,6 +903,7 @@ export const DisputesPage = () => {
   const [seconds, setSeconds] = useState(0)
   const [searchResult, setSearchResult] = useState<string>('')
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
 
@@ -1089,7 +1114,7 @@ export const StaffQueuePage = () => {
 
 export const StaffCasePage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, decideDispute, user } = useApp()
+  const { disputes, orders, offers, decideDispute, user } = useApp()
   const nav = useNavigate()
   const d = disputes.find((x) => x.id === disputeId)
   const [winner, setWinner] = useState<'buyer' | 'seller'>('buyer')
@@ -1097,20 +1122,37 @@ export const StaffCasePage = () => {
 
   if (!d) return <p>Case not found</p>
 
+  const order = orders.find((item) => item.id === d.orderId)
+  const offer = offers.find((item) => item.id === order?.offerId)
+  const gameTitle = games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'
+
   return (
     <div className="stack">
       <Card>
         <h3>Anonymous case {d.id}</h3>
         <p>Order reference: #{d.orderId.slice(-6)}</p>
-        <p>Description: {d.message}</p>
+        <p>Game: {gameTitle}</p>
+        <p>Category: {offer?.category ?? '-'}</p>
+        <p>What was bought: {offer?.title ?? order?.offerId ?? '-'}</p>
+        <p>Description: {offer?.description ?? '-'}</p>
+        <p>Claim details: {d.message}</p>
         {d.evidence.map((e, i) => <p key={i}>{e.type}: {e.url}</p>)}
       </Card>
       <div className="chips">
-        <button className="chip" onClick={() => setWinner('buyer')}>Buyer wins</button>
-        <button className="chip" onClick={() => setWinner('seller')}>Seller wins</button>
+        <button className={`chip ${winner === 'buyer' ? 'active' : ''}`} onClick={() => setWinner('buyer')}>Buyer wins</button>
+        <button className={`chip ${winner === 'seller' ? 'active' : ''}`} onClick={() => setWinner('seller')}>Seller wins</button>
+        <Link className="chip" to={`/order/${d.orderId}/chat?dispute=${d.id}`}>Join dispute chat</Link>
       </div>
-      <textarea className="input" placeholder="Decision text" value={text} onChange={(e) => setText(e.target.value)} />
-      <button className="btn" onClick={() => { decideDispute(d.id, winner, text || 'Decision submitted', String(user.id)); nav('/staff') }}>
+      <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} />
+      <button className="btn" onClick={() => {
+        const decisionText = text.trim()
+        if (decisionText.length < 30) {
+          window.alert('Please provide a detailed explanation (at least 30 characters).')
+          return
+        }
+        decideDispute(d.id, winner, decisionText, String(user.id))
+        nav('/staff')
+      }}>
         Submit decision
       </button>
     </div>

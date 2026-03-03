@@ -90,6 +90,7 @@ export interface Dispute {
     | 'final_decided'
     | 'closed'
   assignedTo?: string
+  arbitratorAlias?: string
   decision?: {
     winner: 'buyer' | 'seller'
     text: string
@@ -111,7 +112,8 @@ export interface StaffMetrics {
 export interface ChatMessage {
   id: string
   orderId: string
-  sender: 'system' | 'buyer' | 'seller'
+  sender: 'system' | 'buyer' | 'seller' | 'arb'
   text: string
   createdAt: number
+  arbAlias?: string
 }
