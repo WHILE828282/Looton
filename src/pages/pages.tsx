@@ -82,6 +82,14 @@ const formatLeftMinutes = (confirmUntil: number) => {
 }
 
 
+
+const getStaffAssigneeKey = (id: number, username: string) => `${id}:${username}`
+
+const isAssignedToStaff = (assignedTo: string | undefined, userId: number, username: string) => {
+  if (!assignedTo) return false
+  return assignedTo === String(userId) || assignedTo === getStaffAssigneeKey(userId, username)
+}
+
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
 const iconCandidates = (src: string) => {
@@ -546,6 +554,7 @@ export const ChatPage = () => {
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
   const [reportDetails, setReportDetails] = useState('')
+  const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -558,7 +567,8 @@ export const ChatPage = () => {
     return item.id === requestedDisputeId
   })
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const canModerateChat = isArbitrator && Boolean(activeDispute && activeDispute.assignedTo === String(user.id))
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
+  const canModerateChat = isArbitrator && Boolean(activeDispute && isAssignedToStaff(activeDispute.assignedTo, user.id, user.username))
   const isParticipant = user.id === order.buyerId || user.id === order.sellerId
   const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
   const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
@@ -653,27 +663,15 @@ export const ChatPage = () => {
     {
       id: order.id,
       title: peerName,
-      preview: (messages.length ? messages[messages.length - 1].text : 'No messages yet'),
+      preview: `Description: ${offer?.description ?? '-'}`,
       active: true
-    },
-    {
-      id: 'demo-1',
-      title: 'support_looton',
-      preview: 'Official platform notifications',
-      active: false
-    },
-    {
-      id: 'demo-2',
-      title: 'fast_seller',
-      preview: 'Sent order details',
-      active: false
     }
   ]
 
   return (
     <div className="chat-shell">
       <aside className="chat-sidebar card">
-        <h2>Messages</h2>
+        <h2>Description</h2>
         <div className="chat-room-list">
           {roomList.map((room) => (
             <button key={room.id} className={room.active ? 'chat-room active' : 'chat-room'}>
@@ -733,6 +731,7 @@ export const ChatPage = () => {
                 {new Date(message.createdAt).toLocaleString()}
               </small>
               <p>{message.text}</p>
+              {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="game-icon" />}
             </div>
           )) : <p>No messages yet.</p>}
         </div>
@@ -763,9 +762,22 @@ export const ChatPage = () => {
         )}
 
         <div className="chat-composer">
+          <input
+            className="input"
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
+              reader.readAsDataURL(file)
+            }}
+          />
+          {attachedImage && <small>Image attached</small>}
           <textarea
             className="input"
-            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
+            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a description...'}
             value={draft}
             disabled={chatBlocked}
             onChange={(event) => setDraft(event.target.value)}
@@ -774,8 +786,15 @@ export const ChatPage = () => {
             className="btn"
             disabled={chatBlocked}
             onClick={() => {
-              sendOrderMessage(order.id, sender, draft, sender === 'arb' ? (activeDispute?.arbitratorAlias || `arb_${user.id}`) : undefined)
+              sendOrderMessage(
+                order.id,
+                sender,
+                draft,
+                sender === 'arb' ? (activeDispute?.arbitratorAlias || `arb_${user.id}`) : undefined,
+                attachedImage
+              )
               setDraft('')
+              setAttachedImage(undefined)
             }}
           >
             ➤
@@ -786,6 +805,7 @@ export const ChatPage = () => {
       <aside className="chat-meta card">
         <h3>Deal details</h3>
         <p>Offer: {offer?.title ?? order.offerId}</p>
+        <p>Description: {offer?.description ?? '-'}</p>
         <p>Amount: {order.amountTon} TON</p>
         <p>Status: {order.status}</p>
         {canModerateChat && (
@@ -809,6 +829,7 @@ export const ChatPage = () => {
 export const MessagesPage = () => {
   const { user, orders, offers, disputes, chatMessages } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
 
   const accessibleOrders = orders.filter((order) => {
     if (!isArbitrator) {
@@ -817,7 +838,7 @@ export const MessagesPage = () => {
 
     return disputes.some((dispute) =>
       dispute.orderId === order.id &&
-      dispute.assignedTo === String(user.id) &&
+      isAssignedToStaff(dispute.assignedTo, user.id, user.username) &&
       ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(dispute.status)
     )
   })
@@ -827,7 +848,7 @@ export const MessagesPage = () => {
       const offer = offers.find((item) => item.id === order.offerId)
       const orderDispute = disputes.find((dispute) =>
         dispute.orderId === order.id &&
-        (dispute.assignedTo === String(user.id) || order.buyerId === user.id || order.sellerId === user.id)
+        (isArbitrator ? isAssignedToStaff(dispute.assignedTo, user.id, user.username) : (order.buyerId === user.id || order.sellerId === user.id))
       )
       const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
       const orderMessages = chatMessages
@@ -941,6 +962,7 @@ export const DisputesPage = () => {
   const [searchParams] = useSearchParams()
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
 
   useEffect(() => {
     if (!searching) return
@@ -955,9 +977,12 @@ export const DisputesPage = () => {
   })
 
   const arbPool = disputes.filter((d) => {
-    if (tab === 'all') return true
+    const mine = isAssignedToStaff(d.assignedTo, user.id, user.username)
+    const inQueue = !d.assignedTo
+    if (tab === 'all') return mine || inQueue
     const isClosed = ['final_decided', 'closed'].includes(d.status)
-    return tab === 'closed' ? isClosed : !isClosed
+    if (tab === 'closed') return isClosed && mine
+    return !isClosed && (mine || inQueue)
   })
 
   const userPool = mine.filter((d) => {
@@ -987,7 +1012,7 @@ export const DisputesPage = () => {
               setSearchResult('')
               const delay = 3000 + Math.floor(Math.random() * 4000)
               setTimeout(() => {
-                const found = assignRandomCase(String(user.id))
+                const found = assignRandomCase(staffKey)
                 if (found) {
                   setSearchResult(`✅ Dispute found: ${found.id}`)
                   nav(`/staff/case/${found.id}`)
@@ -1080,13 +1105,44 @@ export const ProfilePage = () => {
       dealsCount: 67,
       depositTon: 80,
       depositStatus: 'active' as const,
+      arbWarnings: 0,
+      arbDeclinesCount: 0,
+      arbFreeDeclineUsed: false,
+      createdAt: user.createdAt
+    },
+    {
+      id: 3001,
+      username: 'arb_alpha',
+      role: 'arb' as Role,
+      buyerRating: 4.9,
+      sellerRating: 4.9,
+      dealsCount: 700,
+      depositTon: 150,
+      depositStatus: 'active' as const,
+      arbWarnings: 0,
+      arbDeclinesCount: 0,
+      arbFreeDeclineUsed: false,
+      createdAt: user.createdAt
+    },
+    {
+      id: 3002,
+      username: 'arb_beta',
+      role: 'arb' as Role,
+      buyerRating: 4.9,
+      sellerRating: 4.9,
+      dealsCount: 710,
+      depositTon: 155,
+      depositStatus: 'active' as const,
+      arbWarnings: 0,
+      arbDeclinesCount: 0,
+      arbFreeDeclineUsed: false,
       createdAt: user.createdAt
     }
   ]
 
   return (
     <div className="stack">
-      <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p></Card>
+      <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
       <Card>
         <p>Switch demo account</p>
@@ -1136,13 +1192,22 @@ export const StaffQueuePage = () => {
   const { assignRandomCase, user } = useApp()
   const nav = useNavigate()
   const [message, setMessage] = useState('')
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
+  const now = Date.now()
+  const cooldownMinLeft = Math.max(0, Math.ceil(((user.arbDeclineCooldownUntil ?? 0) - now) / 60000))
+  const suspendedDaysLeft = Math.max(0, Math.ceil(((user.arbSuspendedUntil ?? 0) - now) / (24 * 60 * 60000)))
+  const cannotTake = (user.arbSuspendedUntil ?? 0) > now || (user.arbDeclineCooldownUntil ?? 0) > now
 
   return (
     <div className="stack">
       <button
         className="btn"
         onClick={() => {
-          const d = assignRandomCase(String(user.id))
+          if (cannotTake) {
+            setMessage((user.arbSuspendedUntil ?? 0) > now ? `Suspended for ${suspendedDaysLeft} day(s).` : `Cooldown active: ${cooldownMinLeft} min left.`)
+            return
+          }
+          const d = assignRandomCase(staffKey)
           if (d) {
             nav(`/staff/case/${d.id}`)
             return
@@ -1152,6 +1217,7 @@ export const StaffQueuePage = () => {
       >
         Assign me next case
       </button>
+      {cannotTake && <Card><p>{(user.arbSuspendedUntil ?? 0) > now ? `Suspended for ${suspendedDaysLeft} day(s).` : `Cooldown active: ${cooldownMinLeft} min left.`}</p></Card>}
       {message && <Card><p>{message}</p></Card>}
     </div>
   )
@@ -1159,18 +1225,20 @@ export const StaffQueuePage = () => {
 
 export const StaffCasePage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, orders, offers, decideDispute, user } = useApp()
+  const { disputes, orders, offers, decideDispute, declineAssignedCase, user } = useApp()
   const nav = useNavigate()
   const d = disputes.find((x) => x.id === disputeId)
   const [winner, setWinner] = useState<'buyer' | 'seller'>('buyer')
   const [text, setText] = useState('')
+  const [declineReasonType, setDeclineReasonType] = useState<'unjustified' | 'lack_expertise'>('unjustified')
+  const [declineText, setDeclineText] = useState('')
 
   if (!d) return <p>Case not found</p>
 
   const order = orders.find((item) => item.id === d.orderId)
   const offer = offers.find((item) => item.id === order?.offerId)
   const gameTitle = games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'
-  const canReviewCase = d.assignedTo === String(user.id)
+  const canReviewCase = isAssignedToStaff(d.assignedTo, user.id, user.username)
   const decisionLocked = ['trainee_decided', 'arb_decided', 'final_decided', 'closed'].includes(d.status)
 
   if (!canReviewCase) {
@@ -1203,6 +1271,21 @@ export const StaffCasePage = () => {
         <Link className="chip" to={`/order/${d.orderId}/chat?dispute=${d.id}`}>Join dispute chat</Link>
       </div>
       <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} disabled={decisionLocked} />
+      {!['senior_arb', 'admin'].includes(user.role) && !decisionLocked && (
+        <Card>
+          <h4>Decline assigned appeal</h4>
+          <select className="input" value={declineReasonType} onChange={(event) => setDeclineReasonType(event.target.value as 'unjustified' | 'lack_expertise')}>
+            <option value="unjustified">Unjustified decline</option>
+            <option value="lack_expertise">I do not know how to solve this case</option>
+          </select>
+          <textarea className="input" placeholder="Explain in detail why you decline this case" value={declineText} onChange={(event) => setDeclineText(event.target.value)} />
+          <button className="btn secondary" onClick={() => {
+            const result = declineAssignedCase(d.id, declineText, declineReasonType)
+            window.alert(result.message)
+            if (result.ok) nav('/staff/queue')
+          }}>Decline case</button>
+        </Card>
+      )}
       <button className="btn" disabled={decisionLocked} onClick={() => {
         const decisionText = text.trim()
         if (decisionText.length < 30) {

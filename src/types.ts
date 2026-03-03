@@ -10,6 +10,11 @@ export interface User {
   depositTon: number
   depositStatus: 'none' | 'active' | 'withdrawal_pending'
   withdrawalRequestedAt?: number
+  arbWarnings?: number
+  arbDeclinesCount?: number
+  arbFreeDeclineUsed?: boolean
+  arbDeclineCooldownUntil?: number
+  arbSuspendedUntil?: number
   createdAt: number
 }
 
@@ -116,4 +121,5 @@ export interface ChatMessage {
   text: string
   createdAt: number
   arbAlias?: string
+  imageUrl?: string
 }

@@ -20,8 +20,13 @@ type AppState = {
   decideDispute: (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => void
   appealDispute: (disputeId: string) => void
   cancelDispute: (disputeId: string) => void
-  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller' | 'arb', text: string, arbAlias?: string) => void
+  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller' | 'arb', text: string, arbAlias?: string, imageUrl?: string) => void
   joinDisputeChat: (disputeId: string, arbAlias: string) => void
+  declineAssignedCase: (
+    disputeId: string,
+    reasonText: string,
+    reasonType: 'unjustified' | 'lack_expertise'
+  ) => { ok: boolean; message: string }
 }
 
 const Context = createContext<AppState | null>(null)
@@ -281,17 +286,24 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     })
   }
 
-  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller' | 'arb', text: string, arbAlias?: string) => {
+  const sendOrderMessage = (
+    orderId: string,
+    sender: 'buyer' | 'seller' | 'arb',
+    text: string,
+    arbAlias?: string,
+    imageUrl?: string
+  ) => {
     const message = text.trim()
-    if (!message) return
+    if (!message && !imageUrl) return
 
     appendChatMessage({
       id: uid('chat'),
       orderId,
       sender,
-      text: message,
+      text: message || 'Image attached',
       createdAt: Date.now(),
-      arbAlias: sender === 'arb' ? (arbAlias?.trim() || 'Arbitrator') : undefined
+      arbAlias: sender === 'arb' ? (arbAlias?.trim() || 'Arbitrator') : undefined,
+      imageUrl
     })
   }
 
@@ -323,6 +335,111 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     })
   }
 
+  const declineAssignedCase = (
+    disputeId: string,
+    reasonText: string,
+    reasonType: 'unjustified' | 'lack_expertise'
+  ): { ok: boolean; message: string } => {
+    const reason = reasonText.trim()
+    const workerKey = `${user.id}:${user.username}`
+    const now = Date.now()
+
+    if (['senior_arb', 'admin'].includes(user.role)) {
+      return { ok: false, message: 'Senior arbitrators cannot decline assigned disputes.' }
+    }
+
+    if ((user.arbSuspendedUntil ?? 0) > now) {
+      return { ok: false, message: 'You are suspended and cannot process disputes now.' }
+    }
+
+    if ((user.arbDeclineCooldownUntil ?? 0) > now) {
+      return { ok: false, message: 'Cooldown active for declines. Please wait before taking further actions.' }
+    }
+
+    if (reason.length < 30) {
+      return { ok: false, message: 'Please provide a detailed reason (at least 30 characters).' }
+    }
+
+    const target = disputes.find((item) => item.id === disputeId)
+    if (!target) {
+      return { ok: false, message: 'Dispute not found.' }
+    }
+
+    const assignedMatches = target.assignedTo === workerKey || target.assignedTo === String(user.id)
+    if (!assignedMatches) {
+      return { ok: false, message: 'This dispute is not assigned to you.' }
+    }
+
+    let warningIncrement = 0
+    let freeDeclineUsed = user.arbFreeDeclineUsed ?? false
+
+    if (reasonType === 'lack_expertise') {
+      warningIncrement = 0.5
+    } else if (freeDeclineUsed) {
+      warningIncrement = 1
+    } else {
+      freeDeclineUsed = true
+    }
+
+    const nextWarnings = (user.arbWarnings ?? 0) + warningIncrement
+    const suspendedUntil = nextWarnings >= 3 ? now + 30 * 24 * 60 * 60 * 1000 : user.arbSuspendedUntil
+    const cooldownUntil = now + 30 * 60 * 1000
+
+    const fallbackStatus: DisputeStatus =
+      target.status === 'assigned_trainee'
+        ? 'opened'
+        : target.status === 'escalated_to_senior'
+          ? 'escalated_to_senior'
+          : 'escalated_to_arb'
+    const nextDisputes = disputes.map((item) =>
+      item.id === disputeId
+        ? {
+            ...item,
+            assignedTo: undefined,
+            status: fallbackStatus
+          }
+        : item
+    )
+
+    setDisputes(nextDisputes)
+    db.setDisputes(nextDisputes)
+
+    const nextUser: User = {
+      ...user,
+      arbWarnings: nextWarnings,
+      arbDeclinesCount: (user.arbDeclinesCount ?? 0) + 1,
+      arbFreeDeclineUsed: freeDeclineUsed,
+      arbDeclineCooldownUntil: cooldownUntil,
+      arbSuspendedUntil: suspendedUntil
+    }
+    setUser(nextUser)
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId: target.orderId,
+      sender: 'system',
+      text: `⚠️ Arbitrator declined dispute ${target.id}. Reason: ${reason}`,
+      createdAt: now
+    })
+
+    if (warningIncrement > 0) {
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: target.orderId,
+        sender: 'system',
+        text: `⚠️ Arbitrator warning issued (+${warningIncrement}). Total warnings: ${nextWarnings}.`,
+        createdAt: now
+      })
+    }
+
+    return {
+      ok: true,
+      message: suspendedUntil && suspendedUntil > now
+        ? 'Dispute declined. You reached 3 warnings and are suspended for 30 days.'
+        : 'Dispute declined successfully. 30-minute cooldown has been applied.'
+    }
+  }
+
   const value = useMemo(
     () => ({
       user,
@@ -340,7 +457,8 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       appealDispute,
       cancelDispute,
       sendOrderMessage,
-      joinDisputeChat
+      joinDisputeChat,
+      declineAssignedCase
     }),
     [user, offers, orders, disputes, chatMessages]
   )
