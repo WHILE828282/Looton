@@ -62,6 +62,20 @@ export const defaultOffers: Offer[] = [
     sellerStats: { rating: 4.8, deals: 410, depositTon: 110 },
     rules: { autoCloseHours: 24, warrantyText: 'No recovery guarantee.' },
     createdAt: Date.now() - 2400000
+  },
+  {
+    id: 'off-4',
+    gameId: 'pubg',
+    category: 'currency',
+    title: 'PUBG UC Top-up',
+    description: 'Instant UC delivery to your PUBG account.',
+    priceTon: 18,
+    deliveryType: 'instant',
+    payoutPolicy: 'instant_if_deposit',
+    sellerId: 2004,
+    sellerStats: { rating: 4.7, deals: 530, depositTon: 140 },
+    rules: { autoCloseHours: 24, warrantyText: 'Re-send if UC is not credited in 15 minutes.' },
+    createdAt: Date.now() - 1800000
   }
 ]
 
