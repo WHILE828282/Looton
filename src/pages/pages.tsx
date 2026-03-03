@@ -42,17 +42,48 @@ const formatLeftMinutes = (confirmUntil: number) => {
 
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
-const GameIcon = ({ src, alt }: { src: string; alt: string }) => (
-  <img
-    className="game-icon"
-    src={src}
-    alt={alt}
-    loading="lazy"
-    onError={(event) => {
-      event.currentTarget.src = '/icon.svg'
-    }}
-  />
-)
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace(/\.jpg$/, '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace(/\.jpeg$/, '.jpg'))
+  }
+
+  if (normalized.includes('/cover.')) {
+    candidates.push(normalized.replace(/\/cover\.(jpg|jpeg)$/, '.svg'))
+  }
+
+  candidates.push('/icon.svg')
+
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = useMemo(() => iconCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[Math.min(index, candidates.length - 1)]}
+      alt={alt}
+      loading="lazy"
+      onError={() => {
+        setIndex((current) => {
+          if (current >= candidates.length - 1) return current
+          return current + 1
+        })
+      }}
+    />
+  )
+}
 
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
