@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, type PropsWithChildren } from 'react'
 import { db } from './storage'
 import { calcFee, isInstantEligible } from './domain'
-import type { Dispute, Offer, Order, User } from '../types'
+import type { ChatMessage, Dispute, Offer, Order, User } from '../types'
 
 type DisputeStatus = Dispute['status']
 
@@ -10,6 +10,7 @@ type AppState = {
   offers: Offer[]
   orders: Order[]
   disputes: Dispute[]
+  chatMessages: ChatMessage[]
   setUser: (user: User) => void
   addOffer: (offer: Offer) => void
   createOrder: (offer: Offer) => Order
@@ -18,6 +19,8 @@ type AppState = {
   assignRandomCase: (workerId: string) => Dispute | undefined
   decideDispute: (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => void
   appealDispute: (disputeId: string) => void
+  cancelDispute: (disputeId: string) => void
+  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller', text: string) => void
 }
 
 const Context = createContext<AppState | null>(null)
@@ -31,6 +34,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   const [offers, setOffers] = useState(db.getOffers())
   const [orders, setOrders] = useState(db.getOrders())
   const [disputes, setDisputes] = useState(db.getDisputes())
+  const [chatMessages, setChatMessages] = useState(db.getChats())
 
   const setUser = (next: User) => {
     setUserState(next)
@@ -64,6 +68,17 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     const next = [order, ...orders]
     setOrders(next)
     db.setOrders(next)
+
+    const paymentMessage: ChatMessage = {
+      id: uid('chat'),
+      orderId: order.id,
+      sender: 'system',
+      text: '✅ Покупатель успешно оплатил заказ. Средства зафиксированы в эскроу.',
+      createdAt: now
+    }
+    const nextChats = [paymentMessage, ...chatMessages]
+    setChatMessages(nextChats)
+    db.setChats(nextChats)
     return order
   }
 
@@ -172,12 +187,63 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     db.setDisputes(next)
   }
 
+  const cancelDispute = (disputeId: string) => {
+    const target = disputes.find((d) => d.id === disputeId)
+    if (!target) return
+
+    const next: Dispute[] = disputes.map((d) =>
+      d.id === disputeId
+        ? {
+            ...d,
+            status: 'closed',
+            message: `${d.message}\n[System] Спор отменен пользователем.`
+          }
+        : d
+    )
+
+    setDisputes(next)
+    db.setDisputes(next)
+
+    updateOrder(target.orderId, { status: 'resolved_seller', closedAt: Date.now() })
+
+    const systemMessage: ChatMessage = {
+      id: uid('chat'),
+      orderId: target.orderId,
+      sender: 'system',
+      text: '⚠️ Спор отменен. Защита сделки прекращена по инициативе пользователя.',
+      createdAt: Date.now()
+    }
+    const nextChats = [systemMessage, ...chatMessages]
+    setChatMessages(nextChats)
+    db.setChats(nextChats)
+  }
+
+  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller', text: string) => {
+    const message = text.trim()
+    if (!message) return
+
+    const next = [
+      {
+        id: uid('chat'),
+        orderId,
+        sender,
+        text: message,
+        createdAt: Date.now()
+      },
+      ...chatMessages
+    ]
+
+    setChatMessages(next)
+    db.setChats(next)
+  }
+
   const value = useMemo(
     () => ({
       user,
       offers,
       orders,
       disputes,
+      chatMessages,
       setUser,
       addOffer,
       createOrder,
@@ -185,9 +251,11 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       openDispute,
       assignRandomCase,
       decideDispute,
-      appealDispute
+      appealDispute,
+      cancelDispute,
+      sendOrderMessage
     }),
-    [user, offers, orders, disputes]
+    [user, offers, orders, disputes, chatMessages]
   )
 
   return <Context.Provider value={value}>{children}</Context.Provider>
