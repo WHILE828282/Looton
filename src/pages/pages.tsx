@@ -559,7 +559,21 @@ export const ChatPage = () => {
   })
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const canModerateChat = isArbitrator && Boolean(activeDispute && activeDispute.assignedTo === String(user.id))
+  const isParticipant = user.id === order.buyerId || user.id === order.sellerId
   const sender: ChatMessage['sender'] = canModerateChat ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+
+  if (!isParticipant && !canModerateChat) {
+    return (
+      <div className="stack">
+        <Card>
+          <h3>Chat access restricted</h3>
+          <p>This chat is available only to buyer, seller, or assigned arbitrator.</p>
+          <Link className="btn" to={isArbitrator ? '/staff/queue' : '/orders'}>Go back</Link>
+        </Card>
+      </div>
+    )
+  }
+
   const paidStatuses: OrderStatus[] = [
     'paid',
     'delivering',
@@ -835,9 +849,10 @@ export const MessagesPage = () => {
     <div className="stack">
       <Card>
         <h3>Messages</h3>
-        <p>{isArbitrator ? 'Assigned dispute chats.' : 'All chat threads with buyers and sellers.'}</p>
+        <p>{isArbitrator ? 'Assigned dispute chats. Open queue if list is empty.' : 'All chat threads with buyers and sellers.'}</p>
       </Card>
       <Card>
+        {isArbitrator && <Link className="btn secondary" to="/staff/queue">Open arbitrator queue</Link>}
         {relatedOrders.length ? relatedOrders.map((item) => (
           <Link key={item.order.id} className="row" to={item.chatLink}>
             <strong>{item.title}</strong>
