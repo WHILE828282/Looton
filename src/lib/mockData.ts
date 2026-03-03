@@ -15,9 +15,9 @@ export const mockUser: User = {
 }
 
 export const games: Game[] = [
-  { id: 'mlbb', title: 'Mobile Legends', tags: ['MOBA', 'Top-up'] },
-  { id: 'pubg', title: 'PUBG Mobile', tags: ['Battle Royale', 'UC'] },
-  { id: 'cs2', title: 'CS2', tags: ['Skins', 'Prime'] }
+  { id: 'mlbb', title: 'Mobile Legends', iconUrl: '/games/mlbb.svg', tags: ['MOBA', 'Top-up'] },
+  { id: 'gta5', title: 'GTA 5', iconUrl: '/games/gta5.svg', tags: ['Accounts', 'Boost'] },
+  { id: 'cs2', title: 'CS2', iconUrl: '/games/cs2.svg', tags: ['Skins', 'Prime'] }
 ]
 
 export const defaultOffers: Offer[] = [
@@ -37,10 +37,10 @@ export const defaultOffers: Offer[] = [
   },
   {
     id: 'off-2',
-    gameId: 'pubg',
+    gameId: 'gta5',
     category: 'items',
-    title: 'Legendary Outfit Account Service',
-    description: 'Manual transfer. Includes warranty and guidance.',
+    title: 'GTA 5 Premium Account Service',
+    description: 'Manual transfer with safety checks and setup guide.',
     priceTon: 55,
     deliveryType: 'manual',
     payoutPolicy: 'hold_24h',
