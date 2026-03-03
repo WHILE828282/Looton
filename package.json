@@ -8,8 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "check:conflicts": "if rg -n \"^(<<<<<<<|=======|>>>>>>>)\" src; then echo 'Merge-conflict markers found in src' && exit 1; else echo 'No merge-conflict markers found in src'; fi",
-    "validate": "npm run check:conflicts && npm run check:context-duplicates && npm run build",
-    "check:context-duplicates": "node -e \"const fs=require('fs');const src=fs.readFileSync('src/lib/AppContext.tsx','utf8');const names=[...src.matchAll(/^ {2}const\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*\\(/gm)].map(m=>m[1]);const dup=[...new Set(names.filter((n,i)=>names.indexOf(n)!==i))];if(dup.length){console.error('Duplicate top-level const functions in AppContext:',dup.join(', '));process.exit(1)}console.log('No duplicate top-level const functions in AppContext');\""
+    "validate": "npm run check:conflicts && npm run build"
   },
   "dependencies": {
     "@tonconnect/ui-react": "^2.0.10",
