@@ -1,11 +1,11 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+import type { ChatMessage, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -16,6 +16,48 @@ type SellForm = {
   deliveryType: OfferDeliveryType
   payoutPolicy: OfferPayoutPolicy
 }
+
+
+
+const DISPUTE_POLICY = `🔒 Политика разрешения споров и обжалования (Looton)
+
+📌 Что произойдет, если будет открыт спор?
+
+Если по вашему заказу открыт спор:
+• Сделка немедленно замораживается.
+• Средства остаются в безопасности на эскроу-счете.
+• К делу назначается независимый арбитр Looton.
+• Обе стороны должны предоставить доказательства (скриншоты, ID транзакций, историю чата и подтверждение доставки).
+
+⚠️ Важно: Если продавец не выполнил заказ, не отменяйте спор до решения арбитра.`
+
+const COMPLETE_ORDER_WARNING = `⚠️ Подтвердите завершение заказа
+
+Вы уверены, что хотите подтвердить эту покупку?
+
+После подтверждения:
+• Эскроу-защита прекращается
+• Средства будут перечислены продавцу
+• Вы не сможете открыть спор по этому заказу
+
+Если вы не получили товар или услугу в полном объеме — НЕ подтверждайте заказ.`
+
+const CANCEL_DISPUTE_WARNING = `⚠️ Хотите отменить спор?
+
+Вы уверены, что хотите отменить этот спор?
+
+После отмены:
+• Защита депонирования средств прекратится
+• Средства могут быть переданы контрагенту
+• Дело может быть не возобновлено
+
+Если проблема не решена — не отменяйте спор.`
+
+const APPEAL_CONFIRM_STEPS = [
+  'Шаг 1/3: Подтвердите, что прочитали правила спора и арбитража.',
+  'Шаг 2/3: Подтвердите, что понимаете последствия обжалования.',
+  'Шаг 3/3: Финальное подтверждение отправки апелляции.'
+]
 
 const statusTone: Record<OrderStatus, 'neutral' | 'ok' | 'warn' | 'danger'> = {
   created: 'neutral',
@@ -39,6 +81,52 @@ const formatLeftMinutes = (confirmUntil: number) => {
   return `${left}m`
 }
 
+
+const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
+
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace(/\.jpg$/, '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace(/\.jpeg$/, '.jpg'))
+  }
+
+  if (normalized.includes('/cover.')) {
+    candidates.push(normalized.replace(/\/cover\.(jpg|jpeg)$/, '.svg'))
+  }
+
+  candidates.push('/icon.svg')
+
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = useMemo(() => iconCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[Math.min(index, candidates.length - 1)]}
+      alt={alt}
+      loading="lazy"
+      onError={() => {
+        setIndex((current) => {
+          if (current >= candidates.length - 1) return current
+          return current + 1
+        })
+      }}
+    />
+  )
+}
+
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
@@ -49,32 +137,133 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 
 export const HomePage = () => {
   const { offers } = useApp()
+  const trending = offers.slice(0, 6)
+  const trustStats = [
+    { label: 'Deals 24h', value: '1,200+' },
+    { label: 'Verified sellers', value: '340+' },
+    { label: 'Avg delivery', value: '8m' }
+  ]
+  const popularAccounts = games.map((g) => ({
+    id: g.id,
+    title: `${g.title} Accounts`,
+    to: `/game/${g.id}`,
+    iconUrl: g.iconUrl
+  }))
+  const popularCurrencies = games.map((g) => ({
+    id: `${g.id}-currency`,
+    title: `${g.title} Currency`,
+    to: `/game/${g.id}/offers/currency`,
+    iconUrl: g.iconUrl
+  }))
+  const popularServices = games.map((g) => ({
+    id: `${g.id}-service`,
+    title: `${g.title} Boosting`,
+    to: `/game/${g.id}/offers/services`,
+    iconUrl: g.iconUrl
+  }))
+  const popularItems = offers.map((o) => ({
+    id: `${o.id}-item`,
+    title: o.title,
+    to: `/offer/${o.id}`,
+    iconUrl: gameIconSrc(o.gameId)
+  }))
 
   return (
     <div className="stack">
       <input className="input" placeholder="Search games, offers, sellers" />
 
       <Card>
-        <h3>Popular games</h3>
-        <div className="chips">
-          {games.map((g) => (
-            <Link key={g.id} className="chip" to={`/game/${g.id}`}>
-              {g.title}
-            </Link>
+        <div className="market-stats">
+          {trustStats.map((stat) => (
+            <div key={stat.label} className="stat-cell">
+              <strong>{stat.value}</strong>
+              <small>{stat.label}</small>
+            </div>
           ))}
         </div>
       </Card>
 
       <Card>
-        <h3>Categories</h3>
-        <div className="chips">{categories.map((c) => <span key={c} className="chip">{c}</span>)}</div>
+        <h3>Trending 🔥</h3>
+        <div className="trending-scroll">
+          {trending.map((offer) => {
+            const iconSrc = gameIconSrc(offer.gameId)
+            const game = games.find((g) => g.id === offer.gameId)
+            return (
+              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
+                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
+                <span>{offer.title}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Accounts</h3>
+          <div className="portal-list">
+            {popularAccounts.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Currencies</h3>
+          <div className="portal-list">
+            {popularCurrencies.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Boosting Services</h3>
+          <div className="portal-list">
+            {popularServices.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Items</h3>
+          <div className="portal-list">
+            {popularItems.slice(0, 4).map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
       <Card>
-        <h3>Top sellers</h3>
-        {offers.slice(0, 3).map((o) => (
-          <p key={o.id}>⭐ {o.sellerStats.rating} · {o.sellerStats.deals} deals · {o.sellerStats.depositTon} TON deposit</p>
-        ))}
+        <h3>Categories</h3>
+        <div className="portal-list">
+          {categories.map((c) => {
+            const game = games[categories.indexOf(c) % games.length]
+            return (
+              <Link key={c} className="portal-link" to={`/game/${game.id}/offers/${c}`}>
+                <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={c} />
+                <span>{c}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
       <Card>
@@ -93,11 +282,16 @@ export const GamePage = () => {
 
   return (
     <div className="stack">
-      <h2>{game.title}</h2>
+      <h2>{game.title} Market</h2>
       <div className="chips">{game.tags.map((t) => <span className="chip" key={t}>{t}</span>)}</div>
       <Card>
         <h3>Categories</h3>
-        {categories.map((c) => <Link className="row" key={c} to={`/game/${game.id}/offers/${c}`}>{c}</Link>)}
+        {categories.map((c) => (
+          <Link className="portal-link" key={c} to={`/game/${game.id}/offers/${c}`}>
+            <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
+            <span>{c}</span>
+          </Link>
+        ))}
       </Card>
     </div>
   )
@@ -106,12 +300,58 @@ export const GamePage = () => {
 export const OffersPage = () => {
   const { offers } = useApp()
   const { gameId, category } = useParams()
-  const filtered = offers.filter((o) => o.gameId === gameId && o.category === category)
+  const [instantOnly, setInstantOnly] = useState(false)
+  const [depositOnly, setDepositOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'best' | 'price_asc' | 'price_desc' | 'rating'>('best')
+
+  const filtered = useMemo(() => {
+    const base = offers.filter((o) => o.gameId === gameId && o.category === category)
+    const withFilters = base.filter((o) => {
+      if (instantOnly && o.deliveryType !== 'instant') return false
+      if (depositOnly && o.sellerStats.depositTon < DEPOSIT_THRESHOLD) return false
+      return true
+    })
+
+    return [...withFilters].sort((a, b) => {
+      if (sortBy === 'price_asc') return a.priceTon - b.priceTon
+      if (sortBy === 'price_desc') return b.priceTon - a.priceTon
+      if (sortBy === 'rating') return b.sellerStats.rating - a.sellerStats.rating
+
+      if (b.sellerStats.depositTon !== a.sellerStats.depositTon) {
+        return b.sellerStats.depositTon - a.sellerStats.depositTon
+      }
+      if (b.sellerStats.rating !== a.sellerStats.rating) {
+        return b.sellerStats.rating - a.sellerStats.rating
+      }
+      return a.priceTon - b.priceTon
+    })
+  }, [offers, gameId, category, instantOnly, depositOnly, sortBy])
 
   return (
     <div className="stack">
-      <div className="chips">{['Deposit only', 'Instant delivery', 'Online', 'Price'].map((f) => <span key={f} className="chip">{f}</span>)}</div>
-      <Card>{filtered.length ? filtered.map((o) => <OfferRow key={o.id} offer={o} />) : <p>No offers yet</p>}</Card>
+      <Card>
+        <h3>Live offers for {category}</h3>
+        <p>Compare seller score, payout policy and delivery speed before purchase.</p>
+      </Card>
+      <div className="chips offer-filters">
+        <button className={`chip ${depositOnly ? 'active' : ''}`} onClick={() => setDepositOnly((v) => !v)}>Deposit only</button>
+        <button className={`chip ${instantOnly ? 'active' : ''}`} onClick={() => setInstantOnly((v) => !v)}>Instant delivery</button>
+        <button className={`chip ${sortBy === 'best' ? 'active' : ''}`} onClick={() => setSortBy('best')}>Best match</button>
+        <button className={`chip ${sortBy === 'price_asc' ? 'active' : ''}`} onClick={() => setSortBy('price_asc')}>Price ↑</button>
+        <button className={`chip ${sortBy === 'price_desc' ? 'active' : ''}`} onClick={() => setSortBy('price_desc')}>Price ↓</button>
+        <button className={`chip ${sortBy === 'rating' ? 'active' : ''}`} onClick={() => setSortBy('rating')}>Top rated</button>
+      </div>
+      <Card>
+        {filtered.length ? filtered.map((o) => (
+          <Link key={o.id} to={`/offer/${o.id}`} className="row">
+            <strong>{o.title}</strong>
+            <small className="offer-meta">
+              ⭐ {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
+            </small>
+            <span>{o.priceTon} TON</span>
+          </Link>
+        )) : <p>No offers yet</p>}
+      </Card>
     </div>
   )
 }
@@ -222,12 +462,20 @@ export const OrderDetailsPage = () => {
         </ol>
       </Card>
 
+      <Link className="btn secondary" to={`/order/${order.id}/chat`}>Open order chat</Link>
+
       {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
-      {isBuyer && <button className="btn" onClick={() => updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })}>Confirm received</button>}
+      {isBuyer && <button className="btn" onClick={() => {
+        if (!window.confirm(COMPLETE_ORDER_WARNING)) return
+        updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })
+      }}>Confirm received</button>}
       {canDispute && (
         <button
           className="btn secondary"
-          onClick={() => nav(`/dispute/${openDispute(order.id, 'Need arbitration', isBuyer ? 'buyer' : 'seller').id}`)}
+          onClick={() => {
+            if (!window.confirm(DISPUTE_POLICY)) return
+            nav(`/dispute/${openDispute(order.id, 'Need arbitration', isBuyer ? 'buyer' : 'seller').id}`)
+          }}
         >
           Open dispute
         </button>
@@ -239,7 +487,58 @@ export const OrderDetailsPage = () => {
   )
 }
 
+export const ChatPage = () => {
+  const { orderId = '' } = useParams()
+  const { user, orders, chatMessages, sendOrderMessage } = useApp()
+  const [draft, setDraft] = useState('')
+  const order = orders.find((o) => o.id === orderId)
+
+  if (!order) return <p>Order not found</p>
+
+  const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const messages = chatMessages
+    .filter((m) => m.orderId === order.id)
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+  return (
+    <div className="stack">
+      <Card>
+        <h3>Order chat #{order.id.slice(-6)}</h3>
+        <p>Общайтесь только внутри платформы. Это помогает арбитражу и защите эскроу.</p>
+      </Card>
+      <Card>
+        <div className="chat-list">
+          {messages.length ? messages.map((message) => (
+            <div key={message.id} className={`chat-bubble ${message.sender}`}>
+              <small>{message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}</small>
+              <p>{message.text}</p>
+            </div>
+          )) : <p>Чат пока пуст.</p>}
+        </div>
+      </Card>
+      <Card>
+        <textarea
+          className="input"
+          placeholder="Напишите сообщение продавцу/покупателю"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <button
+          className="btn"
+          onClick={() => {
+            sendOrderMessage(order.id, sender, draft)
+            setDraft('')
+          }}
+        >
+          Send message
+        </button>
+      </Card>
+    </div>
+  )
+}
+
 export const SellPage = () => {
+
   const { offers, user } = useApp()
   const myOffers = offers.filter((o) => o.sellerId === user.id)
 
@@ -313,12 +612,13 @@ export const DisputesPage = () => {
 
 export const DisputeDetailsPage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, appealDispute } = useApp()
+  const { disputes, appealDispute, cancelDispute } = useApp()
   const d = disputes.find((x) => x.id === disputeId)
 
   if (!d) return <p>Not found</p>
 
   const canAppeal = ['trainee_decided', 'arb_decided'].includes(d.status) && d.appealCount < 1
+  const canCancel = ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(d.status)
 
   return (
     <div className="stack">
@@ -333,12 +633,23 @@ export const DisputeDetailsPage = () => {
         <p>opened → assigned → decision → escalations</p>
         {d.decision && <p>Winner: {d.decision.winner}</p>}
       </Card>
-      {canAppeal && <button className="btn secondary" onClick={() => appealDispute(d.id)}>Appeal</button>}
+      {canAppeal && <button className="btn secondary" onClick={() => {
+        if (!window.confirm(DISPUTE_POLICY)) return
+        for (const step of APPEAL_CONFIRM_STEPS) {
+          if (!window.confirm(step)) return
+        }
+        appealDispute(d.id)
+      }}>Appeal</button>}
+      {canCancel && <button className="btn secondary" onClick={() => {
+        if (!window.confirm(CANCEL_DISPUTE_WARNING)) return
+        cancelDispute(d.id)
+      }}>Cancel dispute</button>}
     </div>
   )
 }
 
 export const ProfilePage = () => {
+
   const { user, setUser } = useApp()
   const roles: Role[] = ['user', 'seller', 'trainee_arb', 'arb', 'senior_arb', 'admin']
 
