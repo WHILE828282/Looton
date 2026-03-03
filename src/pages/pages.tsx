@@ -258,7 +258,32 @@ export const GamePage = () => {
 export const OffersPage = () => {
   const { offers } = useApp()
   const { gameId, category } = useParams()
-  const filtered = offers.filter((o) => o.gameId === gameId && o.category === category)
+  const [instantOnly, setInstantOnly] = useState(false)
+  const [depositOnly, setDepositOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'best' | 'price_asc' | 'price_desc' | 'rating'>('best')
+
+  const filtered = useMemo(() => {
+    const base = offers.filter((o) => o.gameId === gameId && o.category === category)
+    const withFilters = base.filter((o) => {
+      if (instantOnly && o.deliveryType !== 'instant') return false
+      if (depositOnly && o.sellerStats.depositTon < DEPOSIT_THRESHOLD) return false
+      return true
+    })
+
+    return [...withFilters].sort((a, b) => {
+      if (sortBy === 'price_asc') return a.priceTon - b.priceTon
+      if (sortBy === 'price_desc') return b.priceTon - a.priceTon
+      if (sortBy === 'rating') return b.sellerStats.rating - a.sellerStats.rating
+
+      if (b.sellerStats.depositTon !== a.sellerStats.depositTon) {
+        return b.sellerStats.depositTon - a.sellerStats.depositTon
+      }
+      if (b.sellerStats.rating !== a.sellerStats.rating) {
+        return b.sellerStats.rating - a.sellerStats.rating
+      }
+      return a.priceTon - b.priceTon
+    })
+  }, [offers, gameId, category, instantOnly, depositOnly, sortBy])
 
   return (
     <div className="stack">
@@ -266,8 +291,25 @@ export const OffersPage = () => {
         <h3>Live offers for {category}</h3>
         <p>Compare seller score, payout policy and delivery speed before purchase.</p>
       </Card>
-      <div className="chips">{['Deposit only', 'Instant delivery', 'Online', 'Price'].map((f) => <span key={f} className="chip">{f}</span>)}</div>
-      <Card>{filtered.length ? filtered.map((o) => <OfferRow key={o.id} offer={o} />) : <p>No offers yet</p>}</Card>
+      <div className="chips offer-filters">
+        <button className={`chip ${depositOnly ? 'active' : ''}`} onClick={() => setDepositOnly((v) => !v)}>Deposit only</button>
+        <button className={`chip ${instantOnly ? 'active' : ''}`} onClick={() => setInstantOnly((v) => !v)}>Instant delivery</button>
+        <button className={`chip ${sortBy === 'best' ? 'active' : ''}`} onClick={() => setSortBy('best')}>Best match</button>
+        <button className={`chip ${sortBy === 'price_asc' ? 'active' : ''}`} onClick={() => setSortBy('price_asc')}>Price ↑</button>
+        <button className={`chip ${sortBy === 'price_desc' ? 'active' : ''}`} onClick={() => setSortBy('price_desc')}>Price ↓</button>
+        <button className={`chip ${sortBy === 'rating' ? 'active' : ''}`} onClick={() => setSortBy('rating')}>Top rated</button>
+      </div>
+      <Card>
+        {filtered.length ? filtered.map((o) => (
+          <Link key={o.id} to={`/offer/${o.id}`} className="row">
+            <strong>{o.title}</strong>
+            <small className="offer-meta">
+              ⭐ {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
+            </small>
+            <span>{o.priceTon} TON</span>
+          </Link>
+        )) : <p>No offers yet</p>}
+      </Card>
     </div>
   )
 }
