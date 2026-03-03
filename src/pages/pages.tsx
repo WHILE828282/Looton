@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
@@ -39,6 +39,52 @@ const formatLeftMinutes = (confirmUntil: number) => {
   return `${left}m`
 }
 
+
+const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
+
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace(/\.jpg$/, '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace(/\.jpeg$/, '.jpg'))
+  }
+
+  if (normalized.includes('/cover.')) {
+    candidates.push(normalized.replace(/\/cover\.(jpg|jpeg)$/, '.svg'))
+  }
+
+  candidates.push('/icon.svg')
+
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = useMemo(() => iconCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[Math.min(index, candidates.length - 1)]}
+      alt={alt}
+      loading="lazy"
+      onError={() => {
+        setIndex((current) => {
+          if (current >= candidates.length - 1) return current
+          return current + 1
+        })
+      }}
+    />
+  )
+}
+
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
@@ -49,32 +95,133 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 
 export const HomePage = () => {
   const { offers } = useApp()
+  const trending = offers.slice(0, 6)
+  const trustStats = [
+    { label: 'Deals 24h', value: '1,200+' },
+    { label: 'Verified sellers', value: '340+' },
+    { label: 'Avg delivery', value: '8m' }
+  ]
+  const popularAccounts = games.map((g) => ({
+    id: g.id,
+    title: `${g.title} Accounts`,
+    to: `/game/${g.id}`,
+    iconUrl: g.iconUrl
+  }))
+  const popularCurrencies = games.map((g) => ({
+    id: `${g.id}-currency`,
+    title: `${g.title} Currency`,
+    to: `/game/${g.id}/offers/currency`,
+    iconUrl: g.iconUrl
+  }))
+  const popularServices = games.map((g) => ({
+    id: `${g.id}-service`,
+    title: `${g.title} Boosting`,
+    to: `/game/${g.id}/offers/services`,
+    iconUrl: g.iconUrl
+  }))
+  const popularItems = offers.map((o) => ({
+    id: `${o.id}-item`,
+    title: o.title,
+    to: `/offer/${o.id}`,
+    iconUrl: gameIconSrc(o.gameId)
+  }))
 
   return (
     <div className="stack">
       <input className="input" placeholder="Search games, offers, sellers" />
 
       <Card>
-        <h3>Popular games</h3>
-        <div className="chips">
-          {games.map((g) => (
-            <Link key={g.id} className="chip" to={`/game/${g.id}`}>
-              {g.title}
-            </Link>
+        <div className="market-stats">
+          {trustStats.map((stat) => (
+            <div key={stat.label} className="stat-cell">
+              <strong>{stat.value}</strong>
+              <small>{stat.label}</small>
+            </div>
           ))}
         </div>
       </Card>
 
       <Card>
-        <h3>Categories</h3>
-        <div className="chips">{categories.map((c) => <span key={c} className="chip">{c}</span>)}</div>
+        <h3>Trending 🔥</h3>
+        <div className="trending-scroll">
+          {trending.map((offer) => {
+            const iconSrc = gameIconSrc(offer.gameId)
+            const game = games.find((g) => g.id === offer.gameId)
+            return (
+              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
+                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
+                <span>{offer.title}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Accounts</h3>
+          <div className="portal-list">
+            {popularAccounts.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Currencies</h3>
+          <div className="portal-list">
+            {popularCurrencies.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Boosting Services</h3>
+          <div className="portal-list">
+            {popularServices.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Items</h3>
+          <div className="portal-list">
+            {popularItems.slice(0, 4).map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
       <Card>
-        <h3>Top sellers</h3>
-        {offers.slice(0, 3).map((o) => (
-          <p key={o.id}>⭐ {o.sellerStats.rating} · {o.sellerStats.deals} deals · {o.sellerStats.depositTon} TON deposit</p>
-        ))}
+        <h3>Categories</h3>
+        <div className="portal-list">
+          {categories.map((c) => {
+            const game = games[categories.indexOf(c) % games.length]
+            return (
+              <Link key={c} className="portal-link" to={`/game/${game.id}/offers/${c}`}>
+                <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={c} />
+                <span>{c}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
       <Card>
@@ -93,11 +240,16 @@ export const GamePage = () => {
 
   return (
     <div className="stack">
-      <h2>{game.title}</h2>
+      <h2>{game.title} Market</h2>
       <div className="chips">{game.tags.map((t) => <span className="chip" key={t}>{t}</span>)}</div>
       <Card>
         <h3>Categories</h3>
-        {categories.map((c) => <Link className="row" key={c} to={`/game/${game.id}/offers/${c}`}>{c}</Link>)}
+        {categories.map((c) => (
+          <Link className="portal-link" key={c} to={`/game/${game.id}/offers/${c}`}>
+            <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
+            <span>{c}</span>
+          </Link>
+        ))}
       </Card>
     </div>
   )
@@ -110,6 +262,10 @@ export const OffersPage = () => {
 
   return (
     <div className="stack">
+      <Card>
+        <h3>Live offers for {category}</h3>
+        <p>Compare seller score, payout policy and delivery speed before purchase.</p>
+      </Card>
       <div className="chips">{['Deposit only', 'Instant delivery', 'Online', 'Price'].map((f) => <span key={f} className="chip">{f}</span>)}</div>
       <Card>{filtered.length ? filtered.map((o) => <OfferRow key={o.id} offer={o} />) : <p>No offers yet</p>}</Card>
     </div>
