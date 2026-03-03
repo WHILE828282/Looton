@@ -446,6 +446,8 @@ export const OrderDetailsPage = () => {
   const canDispute = canOpenDispute(order)
   const isBuyer = user.id === order.buyerId
   const isSeller = user.id === order.sellerId
+  const canMarkDelivered = isSeller && (!isBuyer || user.role === 'seller')
+  const canConfirmReceived = isBuyer && (!isSeller || user.role !== 'seller')
 
   return (
     <div className="stack">
