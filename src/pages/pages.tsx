@@ -141,7 +141,12 @@ export const HomePage = () => {
   const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
 
-  const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
+  const trendingSections = [
+    { id: 'accounts', title: 'Popular Accounts', to: '/game/mlbb/offers/accounts', iconUrl: gameIconSrc('mlbb') },
+    { id: 'currency', title: 'Popular Currencies', to: '/game/mlbb/offers/currency', iconUrl: gameIconSrc('mlbb') },
+    { id: 'items', title: 'Popular Items', to: '/game/cs2/offers/items', iconUrl: gameIconSrc('cs2') },
+    { id: 'services', title: 'Popular Boosting', to: '/game/gta5/offers/services', iconUrl: gameIconSrc('gta5') }
+  ]
   const trustStats = [
     { label: 'Deals 24h', value: '1,200+' },
     { label: 'Verified sellers', value: '340+' },
@@ -236,16 +241,12 @@ export const HomePage = () => {
       <Card>
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
-          {trending.map((offer) => {
-            const iconSrc = gameIconSrc(offer.gameId)
-            const game = games.find((g) => g.id === offer.gameId)
-            return (
-              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
-                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
-                <span>{offer.title}</span>
-              </Link>
-            )
-          })}
+          {trendingSections.map((section) => (
+            <Link key={section.id} className="trending-item" to={section.to}>
+              <GameIcon src={section.iconUrl} alt={section.title} />
+              <span>{section.title}</span>
+            </Link>
+          ))}
         </div>
       </Card>
 
@@ -791,24 +792,41 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, chatMessages } = useApp()
+  const { user, orders, offers, disputes, chatMessages } = useApp()
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
 
-  const relatedOrders = orders
-    .filter((order) => order.buyerId === user.id || order.sellerId === user.id)
+  const accessibleOrders = orders.filter((order) => {
+    if (order.buyerId === user.id || order.sellerId === user.id) return true
+    if (!isArbitrator) return false
+
+    return disputes.some((dispute) =>
+      dispute.orderId === order.id &&
+      dispute.assignedTo === String(user.id) &&
+      ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(dispute.status)
+    )
+  })
+
+  const relatedOrders = accessibleOrders
     .map((order) => {
       const offer = offers.find((item) => item.id === order.offerId)
+      const orderDispute = disputes.find((dispute) =>
+        dispute.orderId === order.id &&
+        (dispute.assignedTo === String(user.id) || order.buyerId === user.id || order.sellerId === user.id)
+      )
       const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
       const orderMessages = chatMessages
         .filter((message) => message.orderId === order.id)
         .sort((a, b) => b.createdAt - a.createdAt)
       const latestMessage = orderMessages[0]
+      const chatLink = orderDispute ? `/order/${order.id}/chat?dispute=${orderDispute.id}` : `/order/${order.id}/chat`
 
       return {
         order,
         title: offer?.title ?? order.offerId,
-        peer: `User ${peerId}`,
+        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `User ${peerId}`,
         preview: latestMessage?.text ?? 'No messages yet',
-        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—'
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—',
+        chatLink
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
@@ -817,16 +835,16 @@ export const MessagesPage = () => {
     <div className="stack">
       <Card>
         <h3>Messages</h3>
-        <p>All chat threads with buyers and sellers.</p>
+        <p>{isArbitrator ? 'Assigned dispute chats.' : 'All chat threads with buyers and sellers.'}</p>
       </Card>
       <Card>
         {relatedOrders.length ? relatedOrders.map((item) => (
-          <Link key={item.order.id} className="row" to={`/order/${item.order.id}/chat`}>
+          <Link key={item.order.id} className="row" to={item.chatLink}>
             <strong>{item.title}</strong>
             <small>{item.peer} · {item.time}</small>
             <span>{item.preview}</span>
           </Link>
-        )) : <p>No conversations yet</p>}
+        )) : <p>{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet'}</p>}
       </Card>
     </div>
   )
@@ -897,7 +915,7 @@ export const SellNewPage = () => {
 }
 
 export const DisputesPage = () => {
-  const { disputes, orders, user, assignRandomCase } = useApp()
+  const { disputes, orders, offers, user, assignRandomCase } = useApp()
   const [tab, setTab] = useState<'active' | 'closed' | 'all'>('active')
   const [searching, setSearching] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -915,7 +933,8 @@ export const DisputesPage = () => {
 
   const mine = disputes.filter((d) => {
     const order = orders.find((o) => o.id === d.orderId)
-    return order ? order.buyerId === user.id || order.sellerId === user.id : true
+    if (!order) return false
+    return order.buyerId === user.id || order.sellerId === user.id
   })
 
   const arbPool = disputes.filter((d) => {
@@ -972,7 +991,16 @@ export const DisputesPage = () => {
       )}
 
       <Card>
-        {visible.length ? visible.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}><strong>{d.reasonCode}</strong><small>{d.status}</small></Link>) : <p>No disputes in this view.</p>}
+        {visible.length ? visible.map((d) => {
+          const order = orders.find((item) => item.id === d.orderId)
+          const offer = offers.find((item) => item.id === order?.offerId)
+          return (
+            <Link className="row" to={`/dispute/${d.id}`} key={d.id}>
+              <strong>{offer?.title ?? `Order #${d.orderId.slice(-6)}`}</strong>
+              <small>{d.reasonCode} · {d.status}</small>
+            </Link>
+          )
+        }) : <p>No disputes in this view.</p>}
       </Card>
     </div>
   )
