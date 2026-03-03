@@ -357,7 +357,7 @@ export const OffersPage = () => {
 }
 
 export const OfferDetailsPage = () => {
-  const { offers } = useApp()
+  const { offers, user } = useApp()
   const { offerId = '' } = useParams()
   const offer = offers.find((o) => o.id === offerId)
 
@@ -376,7 +376,7 @@ export const OfferDetailsPage = () => {
         <p>Seller ⭐ {offer.sellerStats.rating} · Deals {offer.sellerStats.deals}</p>
         <p>Deposit {offer.sellerStats.depositTon} TON</p>
       </Card>
-      <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>
+      {offer.sellerId === user.id ? <p>You cannot buy your own offer.</p> : <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>}
     </div>
   )
 }
@@ -437,8 +437,7 @@ export const OrdersPage = () => {
 
 export const OrderDetailsPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, offers, updateOrder, openDispute } = useApp()
-  const nav = useNavigate()
+  const { user, orders, offers, updateOrder } = useApp()
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -447,6 +446,8 @@ export const OrderDetailsPage = () => {
   const canDispute = canOpenDispute(order)
   const isBuyer = user.id === order.buyerId
   const isSeller = user.id === order.sellerId
+  const canMarkDelivered = isSeller && (!isBuyer || user.role === 'seller')
+  const canConfirmReceived = isBuyer && (!isSeller || user.role !== 'seller')
 
   return (
     <div className="stack">
@@ -464,22 +465,12 @@ export const OrderDetailsPage = () => {
 
       <Link className="btn secondary" to={`/order/${order.id}/chat`}>Open order chat</Link>
 
-      {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
-      {isBuyer && <button className="btn" onClick={() => {
+      {canMarkDelivered && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
+      {canConfirmReceived && <button className="btn" onClick={() => {
         if (!window.confirm(COMPLETE_ORDER_WARNING)) return
         updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })
       }}>Confirm received</button>}
-      {canDispute && (
-        <button
-          className="btn secondary"
-          onClick={() => {
-            if (!window.confirm(DISPUTE_POLICY)) return
-            nav(`/dispute/${openDispute(order.id, 'Need arbitration', isBuyer ? 'buyer' : 'seller').id}`)
-          }}
-        >
-          Open dispute
-        </button>
-      )}
+      {canDispute && <p>Use chat report to open a dispute for this order.</p>}
       <button className="btn secondary" onClick={() => updateOrder(order.id, { status: 'auto_confirmed', closedAt: Date.now() })}>
         Trigger auto confirm
       </button>
@@ -489,11 +480,15 @@ export const OrderDetailsPage = () => {
 
 export const ChatPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, offers, chatMessages, sendOrderMessage } = useApp()
+  const { user, orders, offers, chatMessages, sendOrderMessage, openDispute } = useApp()
+  const nav = useNavigate()
   const [draft, setDraft] = useState('')
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [chatBlocked, setChatBlocked] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
+  const [reportDetails, setReportDetails] = useState('')
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -523,6 +518,35 @@ export const ChatPage = () => {
   const sellerName = `seller_${order.sellerId}`
   const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
   const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
+
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`looton_notifications_${order.id}`)
+    setNotificationsEnabled(saved === 'on')
+    setChatBlocked(localStorage.getItem(`looton_chat_blocked_${order.id}`) === '1')
+  }, [order.id])
+
+  useEffect(() => {
+    localStorage.setItem(`looton_notifications_${order.id}`, notificationsEnabled ? 'on' : 'off')
+  }, [order.id, notificationsEnabled])
+
+  useEffect(() => {
+    localStorage.setItem(`looton_chat_blocked_${order.id}`, chatBlocked ? '1' : '0')
+  }, [order.id, chatBlocked])
+
+  useEffect(() => {
+    if (!notificationsEnabled || !messages.length) return
+    const latest = messages[messages.length - 1]
+    if (latest.sender === sender) return
+
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'granted') {
+        new Notification(`Looton • ${peerName}`, { body: latest.text })
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
+    }
+  }, [messages, notificationsEnabled, sender, peerName])
 
   const roomList = [
     {
@@ -566,7 +590,15 @@ export const ChatPage = () => {
             <small>{peerSubtitle}</small>
           </div>
           <div className="chat-header-actions">
-            <button className="chip" onClick={() => setNotificationsEnabled((v) => !v)}>
+            <button className="chip" onClick={() => {
+              setNotificationsEnabled((v) => {
+                const next = !v
+                if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                  Notification.requestPermission()
+                }
+                return next
+              })
+            }}>
               {notificationsEnabled ? '🔔 Notifications on' : '🔕 Enable notifications'}
             </button>
             <div className="chat-menu-wrap">
@@ -574,13 +606,13 @@ export const ChatPage = () => {
               {menuOpen && (
                 <div className="chat-menu card">
                   <button className="chat-menu-item" onClick={() => {
-                    setChatBlocked(true)
+                    setChatBlocked((v) => !v)
                     setMenuOpen(false)
                   }}>
-                    Block user
+                    {chatBlocked ? 'Unblock user' : 'Block user'}
                   </button>
                   <button className="chat-menu-item" onClick={() => {
-                    window.alert('Report submitted. Looton support will review this conversation.')
+                    setReportOpen(true)
                     setMenuOpen(false)
                   }}>
                     Report user
@@ -603,6 +635,32 @@ export const ChatPage = () => {
             </div>
           )) : <p>No messages yet.</p>}
         </div>
+
+
+        {reportOpen && (
+          <div className="chat-report card">
+            <h4>Open dispute from chat report</h4>
+            <p>Select a reason for your appeal/dispute:</p>
+            <select className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as 'not_received' | 'invalid' | 'restored_account' | 'other')}>
+              <option value="not_received">Seller did not deliver the order</option>
+              <option value="invalid">Delivered item/service is invalid</option>
+              <option value="restored_account">Account was restored by original owner</option>
+              <option value="other">Other issue</option>
+            </select>
+            <textarea className="input" placeholder="Describe the problem in detail" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
+            <div className="chips">
+              <button className="chip active" onClick={() => {
+                if (!window.confirm(DISPUTE_POLICY)) return
+                const details = reportDetails.trim() || `Reason: ${reportReason}`
+                const dispute = openDispute(order.id, details, sender)
+                setReportOpen(false)
+                setReportDetails('')
+                nav(`/dispute/${dispute.id}`)
+              }}>Submit report</button>
+              <button className="chip" onClick={() => setReportOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
 
         <div className="chat-composer">
           <textarea
@@ -714,7 +772,7 @@ export const DisputesPage = () => {
 
 export const DisputeDetailsPage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, appealDispute, cancelDispute } = useApp()
+  const { disputes, cancelDispute } = useApp()
   const d = disputes.find((x) => x.id === disputeId)
 
   if (!d) return <p>Not found</p>
@@ -735,13 +793,7 @@ export const DisputeDetailsPage = () => {
         <p>opened → assigned → decision → escalations</p>
         {d.decision && <p>Winner: {d.decision.winner}</p>}
       </Card>
-      {canAppeal && <button className="btn secondary" onClick={() => {
-        if (!window.confirm(DISPUTE_POLICY)) return
-        for (const step of APPEAL_CONFIRM_STEPS) {
-          if (!window.confirm(step)) return
-        }
-        appealDispute(d.id)
-      }}>Appeal</button>}
+      {canAppeal && <p>Appeal can only be initiated from chat report.</p>}
       {canCancel && <button className="btn secondary" onClick={() => {
         if (!window.confirm(CANCEL_DISPUTE_WARNING)) return
         cancelDispute(d.id)

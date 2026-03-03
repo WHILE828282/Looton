@@ -43,7 +43,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
 
   const addOffer = (offer: Offer) => {
     setOffers((prev) => {
-      const next = [offer, ...prev]
+      const next = [...prev, offer]
       db.setOffers(next)
       return next
     })
