@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:conflicts": "if rg -n \"^(<<<<<<<|=======|>>>>>>>)\" src; then echo 'Merge-conflict markers found in src' && exit 1; else echo 'No merge-conflict markers found in src'; fi",
+    "validate": "npm run check:conflicts && npm run build"
   },
   "dependencies": {
     "@tonconnect/ui-react": "^2.0.10",
