@@ -137,12 +137,40 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 
 export const HomePage = () => {
   const { offers, user } = useApp()
+  const nav = useNavigate()
+  const [query, setQuery] = useState('')
+
   const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
   const trustStats = [
     { label: 'Deals 24h', value: '1,200+' },
     { label: 'Verified sellers', value: '340+' },
     { label: 'Avg delivery', value: '8m' }
   ]
+
+  const searchSuggestions = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+
+    const gameItems = games
+      .filter((game) => game.title.toLowerCase().includes(q))
+      .map((game) => ({ id: `game-${game.id}`, label: game.title, hint: 'Game', to: `/game/${game.id}` }))
+
+    const offerItems = offers
+      .filter((offer) => offer.title.toLowerCase().includes(q))
+      .map((offer) => ({ id: `offer-${offer.id}`, label: offer.title, hint: 'Offer', to: `/offer/${offer.id}` }))
+
+    const categoryItems = categories
+      .filter((category) => category.toLowerCase().includes(q))
+      .map((category) => ({
+        id: `category-${category}`,
+        label: `${category} in ${games[0].title}`,
+        hint: 'Category filter',
+        to: `/game/${games[0].id}/offers/${category}`
+      }))
+
+    return [...gameItems, ...offerItems, ...categoryItems].slice(0, 8)
+  }, [query, offers])
+
   const popularAccounts = games.map((g) => ({
     id: g.id,
     title: `${g.title} Accounts`,
@@ -161,16 +189,37 @@ export const HomePage = () => {
     to: `/game/${g.id}/offers/services`,
     iconUrl: g.iconUrl
   }))
-  const popularItems = offers.map((o) => ({
-    id: `${o.id}-item`,
-    title: o.title,
-    to: `/offer/${o.id}`,
-    iconUrl: gameIconSrc(o.gameId)
-  }))
+  const popularItems = offers
+    .filter((offer) => offer.sellerId !== user.id)
+    .map((o) => ({
+      id: `${o.id}-item`,
+      title: o.title,
+      to: `/offer/${o.id}`,
+      iconUrl: gameIconSrc(o.gameId)
+    }))
 
   return (
     <div className="stack">
-      <input className="input" placeholder="Search games, offers, sellers" />
+      <div className="search-wrap">
+        <input className="input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
+        {!!searchSuggestions.length && (
+          <div className="search-suggestions card">
+            {searchSuggestions.map((suggestion) => (
+              <button
+                key={suggestion.id}
+                className="search-suggestion"
+                onClick={() => {
+                  setQuery('')
+                  nav(suggestion.to)
+                }}
+              >
+                <strong>{suggestion.label}</strong>
+                <small>{suggestion.hint}</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Card>
         <div className="market-stats">
@@ -376,7 +425,11 @@ export const OfferDetailsPage = () => {
         <p>Seller ⭐ {offer.sellerStats.rating} · Deals {offer.sellerStats.deals}</p>
         <p>Deposit {offer.sellerStats.depositTon} TON</p>
       </Card>
-      {offer.sellerId === user.id ? <p>You cannot buy your own offer.</p> : <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>}
+      {['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+        ? <p>Arbitrator accounts cannot purchase offers.</p>
+        : offer.sellerId === user.id
+          ? <p>You cannot buy your own offer.</p>
+          : <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>}
     </div>
   )
 }
@@ -820,13 +873,84 @@ export const SellNewPage = () => {
 }
 
 export const DisputesPage = () => {
-  const { disputes, orders, user } = useApp()
+  const { disputes, orders, user, assignRandomCase } = useApp()
+  const [tab, setTab] = useState<'active' | 'closed' | 'all'>('active')
+  const [searching, setSearching] = useState(false)
+  const [seconds, setSeconds] = useState(0)
+  const [searchResult, setSearchResult] = useState<string>('')
+  const nav = useNavigate()
+
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+
+  useEffect(() => {
+    if (!searching) return
+    const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
+    return () => clearInterval(timer)
+  }, [searching])
+
   const mine = disputes.filter((d) => {
     const order = orders.find((o) => o.id === d.orderId)
     return order ? order.buyerId === user.id || order.sellerId === user.id : true
   })
 
-  return <div className="stack"><Card>{mine.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}>{d.reasonCode}<small>{d.status}</small></Link>)}</Card></div>
+  const arbPool = disputes.filter((d) => {
+    if (tab === 'all') return true
+    const isClosed = ['final_decided', 'closed'].includes(d.status)
+    return tab === 'closed' ? isClosed : !isClosed
+  })
+
+  const userPool = mine.filter((d) => {
+    if (tab === 'all') return true
+    const isClosed = ['final_decided', 'closed'].includes(d.status)
+    return tab === 'closed' ? isClosed : !isClosed
+  })
+
+  const visible = isArbitrator ? arbPool : userPool
+
+  return (
+    <div className="stack">
+      <div className="chips">
+        <button className={`chip ${tab === 'active' ? 'active' : ''}`} onClick={() => setTab('active')}>Active</button>
+        <button className={`chip ${tab === 'closed' ? 'active' : ''}`} onClick={() => setTab('closed')}>Closed</button>
+        <button className={`chip ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>All disputes</button>
+      </div>
+
+      {isArbitrator && (
+        <Card>
+          <h3>Arbitrator queue</h3>
+          <p>Current disputes · Resolved disputes · All disputes</p>
+          <div className="chips">
+            {!searching && <button className="chip active" onClick={() => {
+              setSearching(true)
+              setSeconds(0)
+              setSearchResult('')
+              const delay = 3000 + Math.floor(Math.random() * 4000)
+              setTimeout(() => {
+                const found = assignRandomCase(String(user.id))
+                if (found) {
+                  setSearchResult(`✅ Dispute found: ${found.id}`)
+                  nav(`/staff/case/${found.id}`)
+                } else {
+                  setSearchResult('No dispute found in queue yet.')
+                }
+                setSearching(false)
+              }, delay)
+            }}>Find new dispute</button>}
+            {searching && <button className="chip" onClick={() => {
+              setSearching(false)
+              setSearchResult('Search stopped manually.')
+            }}>✖ Stop search</button>}
+          </div>
+          {searching && <p>⏱️ Searching... {seconds}s</p>}
+          {!!searchResult && <p>{searchResult}</p>}
+        </Card>
+      )}
+
+      <Card>
+        {visible.length ? visible.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}><strong>{d.reasonCode}</strong><small>{d.status}</small></Link>) : <p>No disputes in this view.</p>}
+      </Card>
+    </div>
+  )
 }
 
 export const DisputeDetailsPage = () => {
@@ -843,7 +967,7 @@ export const DisputeDetailsPage = () => {
     <div className="stack">
       <Card>
         <p>Reason: {d.reasonCode}</p>
-        <p>{d.message}</p>
+        <p>Description: {d.message}</p>
         <p>Status: {d.status}</p>
         {d.decision && <p>Decision: {d.decision.text}</p>}
       </Card>
@@ -978,7 +1102,7 @@ export const StaffCasePage = () => {
       <Card>
         <h3>Anonymous case {d.id}</h3>
         <p>Order reference: #{d.orderId.slice(-6)}</p>
-        <p>{d.message}</p>
+        <p>Description: {d.message}</p>
         {d.evidence.map((e, i) => <p key={i}>{e.type}: {e.url}</p>)}
       </Card>
       <div className="chips">

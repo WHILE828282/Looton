@@ -125,6 +125,14 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       return next
     })
 
+    appendChatMessage({
+      id: uid('chat'),
+      orderId,
+      sender: 'system',
+      text: '⚖️ An arbitrator will join this chat soon to help resolve your issue.',
+      createdAt: Date.now()
+    })
+
     return dispute
   }
 
