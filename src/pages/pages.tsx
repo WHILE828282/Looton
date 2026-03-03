@@ -497,8 +497,24 @@ export const ChatPage = () => {
 
   const offer = offers.find((item) => item.id === order.offerId)
   const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const paidStatuses: OrderStatus[] = [
+    'paid',
+    'delivering',
+    'delivered',
+    'confirmed',
+    'auto_confirmed',
+    'disputed',
+    'resolved_buyer',
+    'resolved_seller'
+  ]
+  const isOrderPaid = Boolean(order.paidAt) || paidStatuses.includes(order.status)
   const messages = chatMessages
     .filter((m) => m.orderId === order.id)
+    .filter((m) => {
+      if (m.sender !== 'system') return true
+      if (!m.text.includes('успешно оплатил заказ')) return true
+      return isOrderPaid
+    })
     .sort((a, b) => a.createdAt - b.createdAt)
 
   const sellerName = `seller_${order.sellerId}`
@@ -589,6 +605,7 @@ export const ChatPage = () => {
         <p>Оффер: {offer?.title ?? order.offerId}</p>
         <p>Сумма: {order.amountTon} TON</p>
         <p>Статус: {order.status}</p>
+        {!isOrderPaid && <p className="chat-warning">Заказ еще не оплачен — сообщение об успешной оплате не показывается.</p>}
         <p>Escrow: активен до завершения заказа.</p>
         <p>Никогда не переводите средства вне платформы.</p>
       </aside>
