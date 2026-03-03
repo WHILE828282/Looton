@@ -1,11 +1,11 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -16,6 +16,48 @@ type SellForm = {
   deliveryType: OfferDeliveryType
   payoutPolicy: OfferPayoutPolicy
 }
+
+
+
+const DISPUTE_POLICY = `🔒 Dispute & Appeal Policy (Looton)
+
+📌 What happens after a dispute is opened?
+
+If a dispute is opened for your order:
+• The transaction is immediately frozen.
+• Funds remain secured in escrow.
+• An independent Looton arbitrator is assigned.
+• Both parties must provide evidence (screenshots, transaction IDs, chat history, delivery proof).
+
+⚠️ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
+
+const COMPLETE_ORDER_WARNING = `⚠️ Confirm order completion
+
+Are you absolutely sure you want to confirm this purchase?
+
+After confirmation:
+• Escrow protection ends
+• Funds are released to the seller
+• You will no longer be able to open a dispute for this order
+
+If you did not receive the full product/service, DO NOT confirm the order.`
+
+const CANCEL_DISPUTE_WARNING = `⚠️ Cancel dispute?
+
+Are you sure you want to cancel this dispute?
+
+After cancellation:
+• Escrow dispute protection ends
+• Funds may be transferred to the counterparty
+• The case may not be reopened
+
+If your issue is not resolved, do not cancel the dispute.`
+
+const APPEAL_CONFIRM_STEPS = [
+  'Step 1/3: Confirm you read the dispute and arbitration policy.',
+  'Step 2/3: Confirm you understand appeal consequences.',
+  'Step 3/3: Final confirmation to submit this appeal.'
+]
 
 const statusTone: Record<OrderStatus, 'neutral' | 'ok' | 'warn' | 'danger'> = {
   created: 'neutral',
@@ -39,6 +81,52 @@ const formatLeftMinutes = (confirmUntil: number) => {
   return `${left}m`
 }
 
+
+const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
+
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace(/\.jpg$/, '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace(/\.jpeg$/, '.jpg'))
+  }
+
+  if (normalized.includes('/cover.')) {
+    candidates.push(normalized.replace(/\/cover\.(jpg|jpeg)$/, '.svg'))
+  }
+
+  candidates.push('/icon.svg')
+
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = useMemo(() => iconCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[Math.min(index, candidates.length - 1)]}
+      alt={alt}
+      loading="lazy"
+      onError={() => {
+        setIndex((current) => {
+          if (current >= candidates.length - 1) return current
+          return current + 1
+        })
+      }}
+    />
+  )
+}
+
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
@@ -48,33 +136,183 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 )
 
 export const HomePage = () => {
-  const { offers } = useApp()
+  const { offers, user } = useApp()
+  const nav = useNavigate()
+  const [query, setQuery] = useState('')
+
+  const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
+  const trustStats = [
+    { label: 'Deals 24h', value: '1,200+' },
+    { label: 'Verified sellers', value: '340+' },
+    { label: 'Avg delivery', value: '8m' }
+  ]
+
+  const searchSuggestions = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+
+    const gameItems = games
+      .filter((game) => game.title.toLowerCase().includes(q))
+      .map((game) => ({ id: `game-${game.id}`, label: game.title, hint: 'Game', to: `/game/${game.id}` }))
+
+    const offerItems = offers
+      .filter((offer) => offer.title.toLowerCase().includes(q))
+      .map((offer) => ({ id: `offer-${offer.id}`, label: offer.title, hint: 'Offer', to: `/offer/${offer.id}` }))
+
+    const categoryItems = categories
+      .filter((category) => category.toLowerCase().includes(q))
+      .map((category) => ({
+        id: `category-${category}`,
+        label: `${category} in ${games[0].title}`,
+        hint: 'Category filter',
+        to: `/game/${games[0].id}/offers/${category}`
+      }))
+
+    return [...gameItems, ...offerItems, ...categoryItems].slice(0, 8)
+  }, [query, offers])
+
+  const popularAccounts = games.map((g) => ({
+    id: g.id,
+    title: `${g.title} Accounts`,
+    to: `/game/${g.id}`,
+    iconUrl: g.iconUrl
+  }))
+  const popularCurrencies = games.map((g) => ({
+    id: `${g.id}-currency`,
+    title: `${g.title} Currency`,
+    to: `/game/${g.id}/offers/currency`,
+    iconUrl: g.iconUrl
+  }))
+  const popularServices = games.map((g) => ({
+    id: `${g.id}-service`,
+    title: `${g.title} Boosting`,
+    to: `/game/${g.id}/offers/services`,
+    iconUrl: g.iconUrl
+  }))
+  const popularItems = offers
+    .filter((offer) => offer.sellerId !== user.id)
+    .map((o) => ({
+      id: `${o.id}-item`,
+      title: o.title,
+      to: `/offer/${o.id}`,
+      iconUrl: gameIconSrc(o.gameId)
+    }))
 
   return (
     <div className="stack">
-      <input className="input" placeholder="Search games, offers, sellers" />
+      <div className="search-wrap">
+        <input className="input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
+        {!!searchSuggestions.length && (
+          <div className="search-suggestions card">
+            {searchSuggestions.map((suggestion) => (
+              <button
+                key={suggestion.id}
+                className="search-suggestion"
+                onClick={() => {
+                  setQuery('')
+                  nav(suggestion.to)
+                }}
+              >
+                <strong>{suggestion.label}</strong>
+                <small>{suggestion.hint}</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Card>
-        <h3>Popular games</h3>
-        <div className="chips">
-          {games.map((g) => (
-            <Link key={g.id} className="chip" to={`/game/${g.id}`}>
-              {g.title}
-            </Link>
+        <div className="market-stats">
+          {trustStats.map((stat) => (
+            <div key={stat.label} className="stat-cell">
+              <strong>{stat.value}</strong>
+              <small>{stat.label}</small>
+            </div>
           ))}
         </div>
       </Card>
 
       <Card>
-        <h3>Categories</h3>
-        <div className="chips">{categories.map((c) => <span key={c} className="chip">{c}</span>)}</div>
+        <h3>Trending 🔥</h3>
+        <div className="trending-scroll">
+          {trending.map((offer) => {
+            const iconSrc = gameIconSrc(offer.gameId)
+            const game = games.find((g) => g.id === offer.gameId)
+            return (
+              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
+                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
+                <span>{offer.title}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Accounts</h3>
+          <div className="portal-list">
+            {popularAccounts.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Currencies</h3>
+          <div className="portal-list">
+            {popularCurrencies.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Boosting Services</h3>
+          <div className="portal-list">
+            {popularServices.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Items</h3>
+          <div className="portal-list">
+            {popularItems.slice(0, 4).map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
       <Card>
-        <h3>Top sellers</h3>
-        {offers.slice(0, 3).map((o) => (
-          <p key={o.id}>⭐ {o.sellerStats.rating} · {o.sellerStats.deals} deals · {o.sellerStats.depositTon} TON deposit</p>
-        ))}
+        <h3>Categories</h3>
+        <div className="portal-list">
+          {categories.map((c) => {
+            const game = games[categories.indexOf(c) % games.length]
+            return (
+              <Link key={c} className="portal-link" to={`/game/${game.id}/offers/${c}`}>
+                <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={c} />
+                <span>{c}</span>
+              </Link>
+            )
+          })}
+        </div>
       </Card>
 
       <Card>
@@ -93,11 +331,16 @@ export const GamePage = () => {
 
   return (
     <div className="stack">
-      <h2>{game.title}</h2>
+      <h2>{game.title} Market</h2>
       <div className="chips">{game.tags.map((t) => <span className="chip" key={t}>{t}</span>)}</div>
       <Card>
         <h3>Categories</h3>
-        {categories.map((c) => <Link className="row" key={c} to={`/game/${game.id}/offers/${c}`}>{c}</Link>)}
+        {categories.map((c) => (
+          <Link className="portal-link" key={c} to={`/game/${game.id}/offers/${c}`}>
+            <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
+            <span>{c}</span>
+          </Link>
+        ))}
       </Card>
     </div>
   )
@@ -106,18 +349,64 @@ export const GamePage = () => {
 export const OffersPage = () => {
   const { offers } = useApp()
   const { gameId, category } = useParams()
-  const filtered = offers.filter((o) => o.gameId === gameId && o.category === category)
+  const [instantOnly, setInstantOnly] = useState(false)
+  const [depositOnly, setDepositOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'best' | 'price_asc' | 'price_desc' | 'rating'>('best')
+
+  const filtered = useMemo(() => {
+    const base = offers.filter((o) => o.gameId === gameId && o.category === category)
+    const withFilters = base.filter((o) => {
+      if (instantOnly && o.deliveryType !== 'instant') return false
+      if (depositOnly && o.sellerStats.depositTon < DEPOSIT_THRESHOLD) return false
+      return true
+    })
+
+    return [...withFilters].sort((a, b) => {
+      if (sortBy === 'price_asc') return a.priceTon - b.priceTon
+      if (sortBy === 'price_desc') return b.priceTon - a.priceTon
+      if (sortBy === 'rating') return b.sellerStats.rating - a.sellerStats.rating
+
+      if (b.sellerStats.depositTon !== a.sellerStats.depositTon) {
+        return b.sellerStats.depositTon - a.sellerStats.depositTon
+      }
+      if (b.sellerStats.rating !== a.sellerStats.rating) {
+        return b.sellerStats.rating - a.sellerStats.rating
+      }
+      return a.priceTon - b.priceTon
+    })
+  }, [offers, gameId, category, instantOnly, depositOnly, sortBy])
 
   return (
     <div className="stack">
-      <div className="chips">{['Deposit only', 'Instant delivery', 'Online', 'Price'].map((f) => <span key={f} className="chip">{f}</span>)}</div>
-      <Card>{filtered.length ? filtered.map((o) => <OfferRow key={o.id} offer={o} />) : <p>No offers yet</p>}</Card>
+      <Card>
+        <h3>Live offers for {category}</h3>
+        <p>Compare seller score, payout policy and delivery speed before purchase.</p>
+      </Card>
+      <div className="chips offer-filters">
+        <button className={`chip ${depositOnly ? 'active' : ''}`} onClick={() => setDepositOnly((v) => !v)}>Deposit only</button>
+        <button className={`chip ${instantOnly ? 'active' : ''}`} onClick={() => setInstantOnly((v) => !v)}>Instant delivery</button>
+        <button className={`chip ${sortBy === 'best' ? 'active' : ''}`} onClick={() => setSortBy('best')}>Best match</button>
+        <button className={`chip ${sortBy === 'price_asc' ? 'active' : ''}`} onClick={() => setSortBy('price_asc')}>Price ↑</button>
+        <button className={`chip ${sortBy === 'price_desc' ? 'active' : ''}`} onClick={() => setSortBy('price_desc')}>Price ↓</button>
+        <button className={`chip ${sortBy === 'rating' ? 'active' : ''}`} onClick={() => setSortBy('rating')}>Top rated</button>
+      </div>
+      <Card>
+        {filtered.length ? filtered.map((o) => (
+          <Link key={o.id} to={`/offer/${o.id}`} className="row">
+            <strong>{o.title}</strong>
+            <small className="offer-meta">
+              ⭐ {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
+            </small>
+            <span>{o.priceTon} TON</span>
+          </Link>
+        )) : <p>No offers yet</p>}
+      </Card>
     </div>
   )
 }
 
 export const OfferDetailsPage = () => {
-  const { offers } = useApp()
+  const { offers, user } = useApp()
   const { offerId = '' } = useParams()
   const offer = offers.find((o) => o.id === offerId)
 
@@ -136,7 +425,11 @@ export const OfferDetailsPage = () => {
         <p>Seller ⭐ {offer.sellerStats.rating} · Deals {offer.sellerStats.deals}</p>
         <p>Deposit {offer.sellerStats.depositTon} TON</p>
       </Card>
-      <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>
+      {['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+        ? <p>Arbitrator accounts cannot purchase offers.</p>
+        : offer.sellerId === user.id
+          ? <p>You cannot buy your own offer.</p>
+          : <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>}
     </div>
   )
 }
@@ -197,8 +490,7 @@ export const OrdersPage = () => {
 
 export const OrderDetailsPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, offers, updateOrder, openDispute } = useApp()
-  const nav = useNavigate()
+  const { user, orders, offers, updateOrder } = useApp()
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -222,16 +514,14 @@ export const OrderDetailsPage = () => {
         </ol>
       </Card>
 
+      <Link className="btn secondary" to={`/order/${order.id}/chat`}>Open order chat</Link>
+
       {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
-      {isBuyer && <button className="btn" onClick={() => updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })}>Confirm received</button>}
-      {canDispute && (
-        <button
-          className="btn secondary"
-          onClick={() => nav(`/dispute/${openDispute(order.id, 'Need arbitration', isBuyer ? 'buyer' : 'seller').id}`)}
-        >
-          Open dispute
-        </button>
-      )}
+      {isBuyer && <button className="btn" onClick={() => {
+        if (!window.confirm(COMPLETE_ORDER_WARNING)) return
+        updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })
+      }}>Confirm received</button>}
+      {canDispute && <p>Use chat report to open a dispute for this order.</p>}
       <button className="btn secondary" onClick={() => updateOrder(order.id, { status: 'auto_confirmed', closedAt: Date.now() })}>
         Trigger auto confirm
       </button>
@@ -239,7 +529,286 @@ export const OrderDetailsPage = () => {
   )
 }
 
+export const ChatPage = () => {
+  const { orderId = '' } = useParams()
+  const { user, orders, offers, chatMessages, sendOrderMessage, openDispute } = useApp()
+  const nav = useNavigate()
+  const [draft, setDraft] = useState('')
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [chatBlocked, setChatBlocked] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
+  const [reportDetails, setReportDetails] = useState('')
+  const order = orders.find((o) => o.id === orderId)
+
+  if (!order) return <p>Order not found</p>
+
+  const offer = offers.find((item) => item.id === order.offerId)
+  const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const paidStatuses: OrderStatus[] = [
+    'paid',
+    'delivering',
+    'delivered',
+    'confirmed',
+    'auto_confirmed',
+    'disputed',
+    'resolved_buyer',
+    'resolved_seller'
+  ]
+  const isOrderPaid = Boolean(order.paidAt) || paidStatuses.includes(order.status)
+  const messages = chatMessages
+    .filter((m) => m.orderId === order.id)
+    .filter((m) => {
+      if (m.sender !== 'system') return true
+      if (!m.text.includes('payment confirmed')) return true
+      return isOrderPaid
+    })
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+  const sellerName = `seller_${order.sellerId}`
+  const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
+  const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
+
+
+  const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
+    { value: 'not_received', label: 'Seller did not deliver the order' },
+    { value: 'invalid', label: 'Delivered item/service is invalid' },
+    { value: 'restored_account', label: 'Account was restored by original owner' },
+    { value: 'other', label: 'Other issue' }
+  ]
+
+  const lastNotifiedKey = `looton_last_notified_${order.id}`
+
+
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`looton_notifications_${order.id}`)
+    setNotificationsEnabled(saved === 'on')
+    setChatBlocked(localStorage.getItem(`looton_chat_blocked_${order.id}`) === '1')
+  }, [order.id])
+
+  useEffect(() => {
+    localStorage.setItem(`looton_notifications_${order.id}`, notificationsEnabled ? 'on' : 'off')
+  }, [order.id, notificationsEnabled])
+
+  useEffect(() => {
+    localStorage.setItem(`looton_chat_blocked_${order.id}`, chatBlocked ? '1' : '0')
+  }, [order.id, chatBlocked])
+
+  useEffect(() => {
+    if (!notificationsEnabled || !messages.length) return
+    const latest = messages[messages.length - 1]
+    if (latest.sender === sender) return
+
+    const lastNotifiedId = localStorage.getItem(lastNotifiedKey)
+    if (lastNotifiedId === latest.id) return
+
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'granted') {
+        new Notification(`Looton • ${peerName}`, { body: latest.text })
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
+    }
+
+    localStorage.setItem(lastNotifiedKey, latest.id)
+  }, [messages, notificationsEnabled, sender, peerName, lastNotifiedKey])
+
+
+  const roomList = [
+    {
+      id: order.id,
+      title: peerName,
+      preview: (messages.length ? messages[messages.length - 1].text : 'No messages yet'),
+      active: true
+    },
+    {
+      id: 'demo-1',
+      title: 'support_looton',
+      preview: 'Official platform notifications',
+      active: false
+    },
+    {
+      id: 'demo-2',
+      title: 'fast_seller',
+      preview: 'Sent order details',
+      active: false
+    }
+  ]
+
+  return (
+    <div className="chat-shell">
+      <aside className="chat-sidebar card">
+        <h2>Messages</h2>
+        <div className="chat-room-list">
+          {roomList.map((room) => (
+            <button key={room.id} className={room.active ? 'chat-room active' : 'chat-room'}>
+              <span className="chat-room-title">{room.title}</span>
+              <small>{room.preview}</small>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <section className="chat-main card">
+        <header className="chat-header">
+          <div>
+            <strong>{peerName}</strong>
+            <small>{peerSubtitle}</small>
+          </div>
+          <div className="chat-header-actions">
+            <button className="chip" onClick={() => {
+              setNotificationsEnabled((v) => {
+                const next = !v
+                if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                  Notification.requestPermission()
+                }
+                return next
+              })
+            }}>
+              {notificationsEnabled ? '🔔 Notifications on' : '🔕 Enable notifications'}
+            </button>
+            <div className="chat-menu-wrap">
+              <button className="chip" onClick={() => setMenuOpen((v) => !v)}>⋯</button>
+              {menuOpen && (
+                <div className="chat-menu card">
+                  <button className="chat-menu-item" onClick={() => {
+                    setChatBlocked((v) => !v)
+                    setMenuOpen(false)
+                  }}>
+                    {chatBlocked ? 'Unblock user' : 'Block user'}
+                  </button>
+                  <button className="chat-menu-item" onClick={() => {
+                    setReportOpen(true)
+                    setMenuOpen(false)
+                  }}>
+                    Report user
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="chat-list">
+          {messages.length ? messages.map((message) => (
+            <div key={message.id} className={`chat-bubble ${message.sender}`}>
+              <small>
+                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}
+                {' · '}
+                {new Date(message.createdAt).toLocaleString()}
+              </small>
+              <p>{message.text}</p>
+            </div>
+          )) : <p>No messages yet.</p>}
+        </div>
+
+
+        {reportOpen && (
+          <div className="chat-report card">
+            <h4>Open dispute from chat report</h4>
+            <p>Select a reason for your appeal/dispute:</p>
+            <select className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as Dispute['reasonCode'])}>
+              {reportReasonOptions.map((reason) => (
+                <option key={reason.value} value={reason.value}>{reason.label}</option>
+              ))}
+            </select>
+            <textarea className="input" placeholder="Describe the problem in detail" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
+            <div className="chips">
+              <button className="chip active" onClick={() => {
+                if (!window.confirm(DISPUTE_POLICY)) return
+                const details = reportDetails.trim() || `Reason: ${reportReason}`
+                const dispute = openDispute(order.id, details, sender, reportReason)
+                setReportOpen(false)
+                setReportDetails('')
+                nav(`/dispute/${dispute.id}`)
+              }}>Submit report</button>
+              <button className="chip" onClick={() => setReportOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        <div className="chat-composer">
+          <textarea
+            className="input"
+            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : 'Write a message...'}
+            value={draft}
+            disabled={chatBlocked}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <button
+            className="btn"
+            disabled={chatBlocked}
+            onClick={() => {
+              sendOrderMessage(order.id, sender, draft)
+              setDraft('')
+            }}
+          >
+            ➤
+          </button>
+        </div>
+      </section>
+
+      <aside className="chat-meta card">
+        <h3>Deal details</h3>
+        <p>Offer: {offer?.title ?? order.offerId}</p>
+        <p>Amount: {order.amountTon} TON</p>
+        <p>Status: {order.status}</p>
+        {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
+        {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
+        <p>Escrow: active until order completion.</p>
+        <p>Never transfer funds outside the platform.</p>
+      </aside>
+    </div>
+  )
+}
+
+
+export const MessagesPage = () => {
+  const { user, orders, offers, chatMessages } = useApp()
+
+  const relatedOrders = orders
+    .filter((order) => order.buyerId === user.id || order.sellerId === user.id)
+    .map((order) => {
+      const offer = offers.find((item) => item.id === order.offerId)
+      const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
+      const orderMessages = chatMessages
+        .filter((message) => message.orderId === order.id)
+        .sort((a, b) => b.createdAt - a.createdAt)
+      const latestMessage = orderMessages[0]
+
+      return {
+        order,
+        title: offer?.title ?? order.offerId,
+        peer: `User ${peerId}`,
+        preview: latestMessage?.text ?? 'No messages yet',
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—'
+      }
+    })
+    .sort((a, b) => b.order.createdAt - a.order.createdAt)
+
+  return (
+    <div className="stack">
+      <Card>
+        <h3>Messages</h3>
+        <p>All chat threads with buyers and sellers.</p>
+      </Card>
+      <Card>
+        {relatedOrders.length ? relatedOrders.map((item) => (
+          <Link key={item.order.id} className="row" to={`/order/${item.order.id}/chat`}>
+            <strong>{item.title}</strong>
+            <small>{item.peer} · {item.time}</small>
+            <span>{item.preview}</span>
+          </Link>
+        )) : <p>No conversations yet</p>}
+      </Card>
+    </div>
+  )
+}
+
 export const SellPage = () => {
+
   const { offers, user } = useApp()
   const myOffers = offers.filter((o) => o.sellerId === user.id)
 
@@ -302,29 +871,101 @@ export const SellNewPage = () => {
 }
 
 export const DisputesPage = () => {
-  const { disputes, orders, user } = useApp()
+  const { disputes, orders, user, assignRandomCase } = useApp()
+  const [tab, setTab] = useState<'active' | 'closed' | 'all'>('active')
+  const [searching, setSearching] = useState(false)
+  const [seconds, setSeconds] = useState(0)
+  const [searchResult, setSearchResult] = useState<string>('')
+  const nav = useNavigate()
+
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+
+  useEffect(() => {
+    if (!searching) return
+    const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
+    return () => clearInterval(timer)
+  }, [searching])
+
   const mine = disputes.filter((d) => {
     const order = orders.find((o) => o.id === d.orderId)
     return order ? order.buyerId === user.id || order.sellerId === user.id : true
   })
 
-  return <div className="stack"><Card>{mine.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}>{d.reasonCode}<small>{d.status}</small></Link>)}</Card></div>
+  const arbPool = disputes.filter((d) => {
+    if (tab === 'all') return true
+    const isClosed = ['final_decided', 'closed'].includes(d.status)
+    return tab === 'closed' ? isClosed : !isClosed
+  })
+
+  const userPool = mine.filter((d) => {
+    if (tab === 'all') return true
+    const isClosed = ['final_decided', 'closed'].includes(d.status)
+    return tab === 'closed' ? isClosed : !isClosed
+  })
+
+  const visible = isArbitrator ? arbPool : userPool
+
+  return (
+    <div className="stack">
+      <div className="chips">
+        <button className={`chip ${tab === 'active' ? 'active' : ''}`} onClick={() => setTab('active')}>Active</button>
+        <button className={`chip ${tab === 'closed' ? 'active' : ''}`} onClick={() => setTab('closed')}>Closed</button>
+        <button className={`chip ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>All disputes</button>
+      </div>
+
+      {isArbitrator && (
+        <Card>
+          <h3>Arbitrator queue</h3>
+          <p>Current disputes · Resolved disputes · All disputes</p>
+          <div className="chips">
+            {!searching && <button className="chip active" onClick={() => {
+              setSearching(true)
+              setSeconds(0)
+              setSearchResult('')
+              const delay = 3000 + Math.floor(Math.random() * 4000)
+              setTimeout(() => {
+                const found = assignRandomCase(String(user.id))
+                if (found) {
+                  setSearchResult(`✅ Dispute found: ${found.id}`)
+                  nav(`/staff/case/${found.id}`)
+                } else {
+                  setSearchResult('No dispute found in queue yet.')
+                }
+                setSearching(false)
+              }, delay)
+            }}>Find new dispute</button>}
+            {searching && <button className="chip" onClick={() => {
+              setSearching(false)
+              setSearchResult('Search stopped manually.')
+            }}>✖ Stop search</button>}
+          </div>
+          {searching && <p>⏱️ Searching... {seconds}s</p>}
+          {!!searchResult && <p>{searchResult}</p>}
+        </Card>
+      )}
+
+      <Card>
+        {visible.length ? visible.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}><strong>{d.reasonCode}</strong><small>{d.status}</small></Link>) : <p>No disputes in this view.</p>}
+      </Card>
+    </div>
+  )
 }
 
 export const DisputeDetailsPage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, appealDispute } = useApp()
+  const { disputes, cancelDispute } = useApp()
   const d = disputes.find((x) => x.id === disputeId)
 
   if (!d) return <p>Not found</p>
 
   const canAppeal = ['trainee_decided', 'arb_decided'].includes(d.status) && d.appealCount < 1
+  const canCancel = ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(d.status)
 
   return (
     <div className="stack">
       <Card>
         <p>Reason: {d.reasonCode}</p>
-        <p>{d.message}</p>
+        <p>Description: {d.message}</p>
         <p>Status: {d.status}</p>
         {d.decision && <p>Decision: {d.decision.text}</p>}
       </Card>
@@ -333,19 +974,57 @@ export const DisputeDetailsPage = () => {
         <p>opened → assigned → decision → escalations</p>
         {d.decision && <p>Winner: {d.decision.winner}</p>}
       </Card>
-      {canAppeal && <button className="btn secondary" onClick={() => appealDispute(d.id)}>Appeal</button>}
+      {canAppeal && <p>Appeal can only be initiated from the chat report menu.</p>}
+      {canCancel && <button className="btn secondary" onClick={() => {
+        if (!window.confirm(CANCEL_DISPUTE_WARNING)) return
+        cancelDispute(d.id)
+      }}>Cancel dispute</button>}
     </div>
   )
 }
 
 export const ProfilePage = () => {
+
   const { user, setUser } = useApp()
   const roles: Role[] = ['user', 'seller', 'trainee_arb', 'arb', 'senior_arb', 'admin']
+  const demoAccounts = [
+    {
+      id: 1001,
+      username: 'user_1',
+      role: 'seller' as Role,
+      buyerRating: 4.8,
+      sellerRating: 4.9,
+      dealsCount: 124,
+      depositTon: 120,
+      depositStatus: 'active' as const,
+      createdAt: user.createdAt
+    },
+    {
+      id: 1002,
+      username: 'user_2',
+      role: 'user' as Role,
+      buyerRating: 4.6,
+      sellerRating: 4.5,
+      dealsCount: 67,
+      depositTon: 80,
+      depositStatus: 'active' as const,
+      createdAt: user.createdAt
+    }
+  ]
 
   return (
     <div className="stack">
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
+      <Card>
+        <p>Switch demo account</p>
+        <select className="input" value={String(user.id)} onChange={(e) => {
+          const pick = demoAccounts.find((account) => String(account.id) === e.target.value)
+          if (pick) setUser({ ...user, ...pick })
+        }}>
+          {demoAccounts.map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+        </select>
+      </Card>
       <Card>
         <p>Role switch (MVP debug)</p>
         <select className="input" value={user.role} onChange={(e) => setUser({ ...user, role: e.target.value as Role })}>
@@ -421,7 +1100,7 @@ export const StaffCasePage = () => {
       <Card>
         <h3>Anonymous case {d.id}</h3>
         <p>Order reference: #{d.orderId.slice(-6)}</p>
-        <p>{d.message}</p>
+        <p>Description: {d.message}</p>
         {d.evidence.map((e, i) => <p key={i}>{e.type}: {e.url}</p>)}
       </Card>
       <div className="chips">
