@@ -456,3 +456,33 @@ button.chip {
     align-items: start;
   }
 }
+
+
+.chat-menu-wrap {
+  position: relative;
+}
+
+.chat-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 8;
+  min-width: 170px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.chat-menu-item {
+  text-align: left;
+  border: 1px solid rgba(126, 161, 225, 0.22);
+  border-radius: 10px;
+  background: rgba(72, 103, 160, 0.12);
+  color: inherit;
+  padding: 8px;
+}
+
+.chat-menu-item:hover {
+  border-color: rgba(128, 178, 255, 0.66);
+  background: rgba(52, 113, 216, 0.22);
+}

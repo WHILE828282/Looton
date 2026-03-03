@@ -19,44 +19,44 @@ type SellForm = {
 
 
 
-const DISPUTE_POLICY = `🔒 Политика разрешения споров и обжалования (Looton)
+const DISPUTE_POLICY = `🔒 Dispute & Appeal Policy (Looton)
 
-📌 Что произойдет, если будет открыт спор?
+📌 What happens after a dispute is opened?
 
-Если по вашему заказу открыт спор:
-• Сделка немедленно замораживается.
-• Средства остаются в безопасности на эскроу-счете.
-• К делу назначается независимый арбитр Looton.
-• Обе стороны должны предоставить доказательства (скриншоты, ID транзакций, историю чата и подтверждение доставки).
+If a dispute is opened for your order:
+• The transaction is immediately frozen.
+• Funds remain secured in escrow.
+• An independent Looton arbitrator is assigned.
+• Both parties must provide evidence (screenshots, transaction IDs, chat history, delivery proof).
 
-⚠️ Важно: Если продавец не выполнил заказ, не отменяйте спор до решения арбитра.`
+⚠️ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
 
-const COMPLETE_ORDER_WARNING = `⚠️ Подтвердите завершение заказа
+const COMPLETE_ORDER_WARNING = `⚠️ Confirm order completion
 
-Вы уверены, что хотите подтвердить эту покупку?
+Are you absolutely sure you want to confirm this purchase?
 
-После подтверждения:
-• Эскроу-защита прекращается
-• Средства будут перечислены продавцу
-• Вы не сможете открыть спор по этому заказу
+After confirmation:
+• Escrow protection ends
+• Funds are released to the seller
+• You will no longer be able to open a dispute for this order
 
-Если вы не получили товар или услугу в полном объеме — НЕ подтверждайте заказ.`
+If you did not receive the full product/service, DO NOT confirm the order.`
 
-const CANCEL_DISPUTE_WARNING = `⚠️ Хотите отменить спор?
+const CANCEL_DISPUTE_WARNING = `⚠️ Cancel dispute?
 
-Вы уверены, что хотите отменить этот спор?
+Are you sure you want to cancel this dispute?
 
-После отмены:
-• Защита депонирования средств прекратится
-• Средства могут быть переданы контрагенту
-• Дело может быть не возобновлено
+After cancellation:
+• Escrow dispute protection ends
+• Funds may be transferred to the counterparty
+• The case may not be reopened
 
-Если проблема не решена — не отменяйте спор.`
+If your issue is not resolved, do not cancel the dispute.`
 
 const APPEAL_CONFIRM_STEPS = [
-  'Шаг 1/3: Подтвердите, что прочитали правила спора и арбитража.',
-  'Шаг 2/3: Подтвердите, что понимаете последствия обжалования.',
-  'Шаг 3/3: Финальное подтверждение отправки апелляции.'
+  'Step 1/3: Confirm you read the dispute and arbitration policy.',
+  'Step 2/3: Confirm you understand appeal consequences.',
+  'Step 3/3: Final confirmation to submit this appeal.'
 ]
 
 const statusTone: Record<OrderStatus, 'neutral' | 'ok' | 'warn' | 'danger'> = {
@@ -491,6 +491,9 @@ export const ChatPage = () => {
   const { orderId = '' } = useParams()
   const { user, orders, offers, chatMessages, sendOrderMessage } = useApp()
   const [draft, setDraft] = useState('')
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [chatBlocked, setChatBlocked] = useState(false)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -512,32 +515,32 @@ export const ChatPage = () => {
     .filter((m) => m.orderId === order.id)
     .filter((m) => {
       if (m.sender !== 'system') return true
-      if (!m.text.includes('успешно оплатил заказ')) return true
+      if (!m.text.includes('payment confirmed')) return true
       return isOrderPaid
     })
     .sort((a, b) => a.createdAt - b.createdAt)
 
   const sellerName = `seller_${order.sellerId}`
   const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
-  const peerSubtitle = sender === 'buyer' ? 'Продавец онлайн' : 'Покупатель онлайн'
+  const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
 
   const roomList = [
     {
       id: order.id,
       title: peerName,
-      preview: (messages.length ? messages[messages.length - 1].text : 'Нет сообщений'),
+      preview: (messages.length ? messages[messages.length - 1].text : 'No messages yet'),
       active: true
     },
     {
       id: 'demo-1',
       title: 'support_looton',
-      preview: 'Официальные уведомления платформы',
+      preview: 'Official platform notifications',
       active: false
     },
     {
       id: 'demo-2',
       title: 'fast_seller',
-      preview: 'Отправил детали по заказу',
+      preview: 'Sent order details',
       active: false
     }
   ]
@@ -545,7 +548,7 @@ export const ChatPage = () => {
   return (
     <div className="chat-shell">
       <aside className="chat-sidebar card">
-        <h2>Сообщения</h2>
+        <h2>Messages</h2>
         <div className="chat-room-list">
           {roomList.map((room) => (
             <button key={room.id} className={room.active ? 'chat-room active' : 'chat-room'}>
@@ -563,8 +566,28 @@ export const ChatPage = () => {
             <small>{peerSubtitle}</small>
           </div>
           <div className="chat-header-actions">
-            <button className="chip">🔔 Уведомления</button>
-            <button className="chip">⋯</button>
+            <button className="chip" onClick={() => setNotificationsEnabled((v) => !v)}>
+              {notificationsEnabled ? '🔔 Notifications on' : '🔕 Enable notifications'}
+            </button>
+            <div className="chat-menu-wrap">
+              <button className="chip" onClick={() => setMenuOpen((v) => !v)}>⋯</button>
+              {menuOpen && (
+                <div className="chat-menu card">
+                  <button className="chat-menu-item" onClick={() => {
+                    setChatBlocked(true)
+                    setMenuOpen(false)
+                  }}>
+                    Block user
+                  </button>
+                  <button className="chat-menu-item" onClick={() => {
+                    window.alert('Report submitted. Looton support will review this conversation.')
+                    setMenuOpen(false)
+                  }}>
+                    Report user
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -572,24 +595,26 @@ export const ChatPage = () => {
           {messages.length ? messages.map((message) => (
             <div key={message.id} className={`chat-bubble ${message.sender}`}>
               <small>
-                {message.sender === 'system' ? 'Система' : message.sender === 'buyer' ? 'Покупатель' : 'Продавец'}
+                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}
                 {' · '}
                 {new Date(message.createdAt).toLocaleString()}
               </small>
               <p>{message.text}</p>
             </div>
-          )) : <p>Чат пока пуст.</p>}
+          )) : <p>No messages yet.</p>}
         </div>
 
         <div className="chat-composer">
           <textarea
             className="input"
-            placeholder="Написать сообщение..."
+            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : 'Write a message...'}
             value={draft}
+            disabled={chatBlocked}
             onChange={(event) => setDraft(event.target.value)}
           />
           <button
             className="btn"
+            disabled={chatBlocked}
             onClick={() => {
               sendOrderMessage(order.id, sender, draft)
               setDraft('')
@@ -601,13 +626,14 @@ export const ChatPage = () => {
       </section>
 
       <aside className="chat-meta card">
-        <h3>Детали сделки</h3>
-        <p>Оффер: {offer?.title ?? order.offerId}</p>
-        <p>Сумма: {order.amountTon} TON</p>
-        <p>Статус: {order.status}</p>
-        {!isOrderPaid && <p className="chat-warning">Заказ еще не оплачен — сообщение об успешной оплате не показывается.</p>}
-        <p>Escrow: активен до завершения заказа.</p>
-        <p>Никогда не переводите средства вне платформы.</p>
+        <h3>Deal details</h3>
+        <p>Offer: {offer?.title ?? order.offerId}</p>
+        <p>Amount: {order.amountTon} TON</p>
+        <p>Status: {order.status}</p>
+        {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
+        {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
+        <p>Escrow: active until order completion.</p>
+        <p>Never transfer funds outside the platform.</p>
       </aside>
     </div>
   )

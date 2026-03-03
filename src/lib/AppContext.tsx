@@ -42,9 +42,19 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const addOffer = (offer: Offer) => {
-    const next = [offer, ...offers]
-    setOffers(next)
-    db.setOffers(next)
+    setOffers((prev) => {
+      const next = [offer, ...prev]
+      db.setOffers(next)
+      return next
+    })
+  }
+
+  const appendChatMessage = (message: ChatMessage) => {
+    setChatMessages((prev) => {
+      const next = [message, ...prev]
+      db.setChats(next)
+      return next
+    })
   }
 
   const createOrder = (offer: Offer): Order => {
@@ -65,27 +75,29 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       }
     }
 
-    const next = [order, ...orders]
-    setOrders(next)
-    db.setOrders(next)
+    setOrders((prev) => {
+      const next = [order, ...prev]
+      db.setOrders(next)
+      return next
+    })
 
-    const paymentMessage: ChatMessage = {
+    appendChatMessage({
       id: uid('chat'),
       orderId: order.id,
       sender: 'system',
-      text: '✅ Покупатель успешно оплатил заказ. Средства зафиксированы в эскроу.',
+      text: '✅ Buyer payment confirmed. Funds are secured in escrow.',
       createdAt: now
-    }
-    const nextChats = [paymentMessage, ...chatMessages]
-    setChatMessages(nextChats)
-    db.setChats(nextChats)
+    })
+
     return order
   }
 
   const updateOrder = (orderId: string, patch: Partial<Order>) => {
-    const next = orders.map((item) => (item.id === orderId ? { ...item, ...patch } : item))
-    setOrders(next)
-    db.setOrders(next)
+    setOrders((prev) => {
+      const next = prev.map((item) => (item.id === orderId ? { ...item, ...patch } : item))
+      db.setOrders(next)
+      return next
+    })
   }
 
   const openDispute = (orderId: string, message: string, openedBy: 'buyer' | 'seller' = 'buyer'): Dispute => {
@@ -102,9 +114,12 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       appealCount: 0
     }
 
-    const next = [dispute, ...disputes]
-    setDisputes(next)
-    db.setDisputes(next)
+    setDisputes((prev) => {
+      const next = [dispute, ...prev]
+      db.setDisputes(next)
+      return next
+    })
+
     return dispute
   }
 
@@ -163,28 +178,73 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const appealDispute = (disputeId: string) => {
-    const next: Dispute[] = disputes.map((d) => {
-      if (d.id !== disputeId || d.appealCount >= 1) {
-        return d
-      }
+    setDisputes((prev) => {
+      const next: Dispute[] = prev.map((d) => {
+        if (d.id !== disputeId || d.appealCount >= 1) {
+          return d
+        }
 
-      const status: DisputeStatus =
-        d.status === 'trainee_decided'
-          ? 'escalated_to_arb'
-          : d.status === 'arb_decided'
-            ? 'escalated_to_senior'
-            : d.status
+        const status: DisputeStatus =
+          d.status === 'trainee_decided'
+            ? 'escalated_to_arb'
+            : d.status === 'arb_decided'
+              ? 'escalated_to_senior'
+              : d.status
 
-      return {
-        ...d,
-        status,
-        appealCount: d.appealCount + 1,
-        assignedTo: undefined
-      }
+        return {
+          ...d,
+          status,
+          appealCount: d.appealCount + 1,
+          assignedTo: undefined
+        }
+      })
+
+      db.setDisputes(next)
+      return next
+    })
+  }
+
+  const cancelDispute = (disputeId: string) => {
+    const target = disputes.find((d) => d.id === disputeId)
+    if (!target) return
+
+    setDisputes((prev) => {
+      const next: Dispute[] = prev.map((d) =>
+        d.id === disputeId
+          ? {
+              ...d,
+              status: 'closed',
+              message: `${d.message}\n[System] Dispute was cancelled by the user.`
+            }
+          : d
+      )
+
+      db.setDisputes(next)
+      return next
     })
 
-    setDisputes(next)
-    db.setDisputes(next)
+    updateOrder(target.orderId, { status: 'resolved_seller', closedAt: Date.now() })
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId: target.orderId,
+      sender: 'system',
+      text: '⚠️ Dispute cancelled. Escrow protection was stopped by user action.',
+      createdAt: Date.now()
+    })
+  }
+
+  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller', text: string) => {
+    const message = text.trim()
+    if (!message) return
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId,
+      sender,
+      text: message,
+      createdAt: Date.now()
+    })
   }
 
   const cancelDispute = (disputeId: string) => {
