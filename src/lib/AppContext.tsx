@@ -146,12 +146,21 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     const pick = available[Math.floor(Math.random() * available.length)]
     const assignedStatus: DisputeStatus = pick.status === 'opened' ? 'assigned_trainee' : pick.status
 
+    const defaultAlias = pick.arbitratorAlias || `arb_${workerId}`
     const next: Dispute[] = disputes.map((d) =>
-      d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d
+      d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus, arbitratorAlias: defaultAlias } : d
     )
 
     setDisputes(next)
     db.setDisputes(next)
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId: pick.orderId,
+      sender: 'system',
+      text: `⚖️ Dispute ${pick.id} assigned to arbitrator ${defaultAlias}.`,
+      createdAt: Date.now()
+    })
 
     return next.find((d) => d.id === pick.id)
   }
@@ -182,6 +191,14 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       const orderStatus = winner === 'buyer' ? 'resolved_buyer' : 'resolved_seller'
       updateOrder(dispute.orderId, { status: orderStatus, closedAt: Date.now() })
 
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: dispute.orderId,
+        sender: 'system',
+        text: `✅ Dispute resolved: ${winner} wins. Reason: ${text.trim() || 'Decision submitted.'}`,
+        createdAt: Date.now()
+      })
+
       if (winner === 'buyer' && isInstantEligible(user)) {
         setUser({ ...user, depositTon: Math.max(0, user.depositTon - 5) })
       }
@@ -192,6 +209,8 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const appealDispute = (disputeId: string) => {
+    let escalatedOrderId: string | undefined
+
     setDisputes((prev) => {
       const next: Dispute[] = prev.map((d) => {
         if (d.id !== disputeId || d.appealCount >= 1) {
@@ -205,6 +224,10 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
               ? 'escalated_to_senior'
               : d.status
 
+        if (status !== d.status) {
+          escalatedOrderId = d.orderId
+        }
+
         return {
           ...d,
           status,
@@ -216,6 +239,16 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       db.setDisputes(next)
       return next
     })
+
+    if (escalatedOrderId) {
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: escalatedOrderId,
+        sender: 'system',
+        text: '📌 Dispute was escalated to the next arbitration level after appeal.',
+        createdAt: Date.now()
+      })
+    }
   }
 
   const cancelDispute = (disputeId: string) => {
@@ -284,7 +317,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     }
 
     setDisputes((prev) => {
-      const next = prev.map((item) => (item.id === disputeId ? { ...item, arbitratorAlias: alias } : item))
+      const next = prev.map((item) => (item.id === disputeId ? { ...item, arbitratorAlias: item.arbitratorAlias || alias } : item))
       db.setDisputes(next)
       return next
     })

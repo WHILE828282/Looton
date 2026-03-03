@@ -560,14 +560,15 @@ export const ChatPage = () => {
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const canModerateChat = isArbitrator && Boolean(activeDispute && activeDispute.assignedTo === String(user.id))
   const isParticipant = user.id === order.buyerId || user.id === order.sellerId
-  const sender: ChatMessage['sender'] = canModerateChat ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+  const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
+  const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
 
-  if (!isParticipant && !canModerateChat) {
+  if (!canAccessChat) {
     return (
       <div className="stack">
         <Card>
           <h3>Chat access restricted</h3>
-          <p>This chat is available only to buyer, seller, or assigned arbitrator.</p>
+          <p>This chat is available only to the assigned arbitrator (for staff) or to buyer/seller (for regular users).</p>
           <Link className="btn" to={isArbitrator ? '/staff/queue' : '/orders'}>Go back</Link>
         </Card>
       </div>
@@ -773,7 +774,7 @@ export const ChatPage = () => {
             className="btn"
             disabled={chatBlocked}
             onClick={() => {
-              sendOrderMessage(order.id, sender, draft, activeDispute?.arbitratorAlias || `arb_${user.id}`)
+              sendOrderMessage(order.id, sender, draft, sender === 'arb' ? (activeDispute?.arbitratorAlias || `arb_${user.id}`) : undefined)
               setDraft('')
             }}
           >
@@ -810,8 +811,9 @@ export const MessagesPage = () => {
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
 
   const accessibleOrders = orders.filter((order) => {
-    if (order.buyerId === user.id || order.sellerId === user.id) return true
-    if (!isArbitrator) return false
+    if (!isArbitrator) {
+      return order.buyerId === user.id || order.sellerId === user.id
+    }
 
     return disputes.some((dispute) =>
       dispute.orderId === order.id &&
@@ -1168,6 +1170,20 @@ export const StaffCasePage = () => {
   const order = orders.find((item) => item.id === d.orderId)
   const offer = offers.find((item) => item.id === order?.offerId)
   const gameTitle = games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'
+  const canReviewCase = d.assignedTo === String(user.id)
+  const decisionLocked = ['trainee_decided', 'arb_decided', 'final_decided', 'closed'].includes(d.status)
+
+  if (!canReviewCase) {
+    return (
+      <div className="stack">
+        <Card>
+          <h3>Case access restricted</h3>
+          <p>This dispute is not assigned to you.</p>
+          <Link className="btn" to="/staff/queue">Back to queue</Link>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="stack">
@@ -1186,8 +1202,8 @@ export const StaffCasePage = () => {
         <button className={`chip ${winner === 'seller' ? 'active' : ''}`} onClick={() => setWinner('seller')}>Seller wins</button>
         <Link className="chip" to={`/order/${d.orderId}/chat?dispute=${d.id}`}>Join dispute chat</Link>
       </div>
-      <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} />
-      <button className="btn" onClick={() => {
+      <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} disabled={decisionLocked} />
+      <button className="btn" disabled={decisionLocked} onClick={() => {
         const decisionText = text.trim()
         if (decisionText.length < 30) {
           window.alert('Please provide a detailed explanation (at least 30 characters).')
@@ -1198,6 +1214,7 @@ export const StaffCasePage = () => {
       }}>
         Submit decision
       </button>
+      {decisionLocked && <p>Decision already submitted for this case.</p>}
     </div>
   )
 }
