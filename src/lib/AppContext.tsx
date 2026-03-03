@@ -247,6 +247,56 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     })
   }
 
+  const cancelDispute = (disputeId: string) => {
+    const target = disputes.find((d) => d.id === disputeId)
+    if (!target) return
+
+    const next: Dispute[] = disputes.map((d) =>
+      d.id === disputeId
+        ? {
+            ...d,
+            status: 'closed',
+            message: `${d.message}\n[System] Спор отменен пользователем.`
+          }
+        : d
+    )
+
+    setDisputes(next)
+    db.setDisputes(next)
+
+    updateOrder(target.orderId, { status: 'resolved_seller', closedAt: Date.now() })
+
+    const systemMessage: ChatMessage = {
+      id: uid('chat'),
+      orderId: target.orderId,
+      sender: 'system',
+      text: '⚠️ Спор отменен. Защита сделки прекращена по инициативе пользователя.',
+      createdAt: Date.now()
+    }
+    const nextChats = [systemMessage, ...chatMessages]
+    setChatMessages(nextChats)
+    db.setChats(nextChats)
+  }
+
+  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller', text: string) => {
+    const message = text.trim()
+    if (!message) return
+
+    const next = [
+      {
+        id: uid('chat'),
+        orderId,
+        sender,
+        text: message,
+        createdAt: Date.now()
+      },
+      ...chatMessages
+    ]
+
+    setChatMessages(next)
+    db.setChats(next)
+  }
+
   const value = useMemo(
     () => ({
       user,
