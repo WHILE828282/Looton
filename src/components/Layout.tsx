@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useApp } from '../lib/AppContext'
 
 const tabs = [
   { to: '/', label: 'Home', icon: '🏠' },
@@ -10,6 +11,7 @@ const tabs = [
 
 export const Layout = () => {
   const location = useLocation()
+  const { user } = useApp()
 
   return (
     <div className="app">
@@ -18,7 +20,10 @@ export const Layout = () => {
           <p className="topbar-eyebrow">eldarado.gg style marketplace</p>
           <h1 className="topbar-title">Looton Portal</h1>
         </div>
-        <span className="topbar-badge">Telegram</span>
+        <div className="topbar-actions">
+          <Link className="topbar-badge" to="/messages">Chat</Link>
+          <span className="topbar-badge">Balance: {user.depositTon.toFixed(2)} TON</span>
+        </div>
       </header>
 
       <main className="main">

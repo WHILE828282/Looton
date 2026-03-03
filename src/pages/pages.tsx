@@ -5,7 +5,7 @@ import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { ChatMessage, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -136,8 +136,8 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 )
 
 export const HomePage = () => {
-  const { offers } = useApp()
-  const trending = offers.slice(0, 6)
+  const { offers, user } = useApp()
+  const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
   const trustStats = [
     { label: 'Deals 24h', value: '1,200+' },
     { label: 'Verified sellers', value: '340+' },
@@ -465,8 +465,8 @@ export const OrderDetailsPage = () => {
 
       <Link className="btn secondary" to={`/order/${order.id}/chat`}>Open order chat</Link>
 
-      {canMarkDelivered && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
-      {canConfirmReceived && <button className="btn" onClick={() => {
+      {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
+      {isBuyer && <button className="btn" onClick={() => {
         if (!window.confirm(COMPLETE_ORDER_WARNING)) return
         updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })
       }}>Confirm received</button>}
@@ -520,6 +520,17 @@ export const ChatPage = () => {
   const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
 
 
+  const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
+    { value: 'not_received', label: 'Seller did not deliver the order' },
+    { value: 'invalid', label: 'Delivered item/service is invalid' },
+    { value: 'restored_account', label: 'Account was restored by original owner' },
+    { value: 'other', label: 'Other issue' }
+  ]
+
+  const lastNotifiedKey = `looton_last_notified_${order.id}`
+
+
+
   useEffect(() => {
     const saved = localStorage.getItem(`looton_notifications_${order.id}`)
     setNotificationsEnabled(saved === 'on')
@@ -539,6 +550,9 @@ export const ChatPage = () => {
     const latest = messages[messages.length - 1]
     if (latest.sender === sender) return
 
+    const lastNotifiedId = localStorage.getItem(lastNotifiedKey)
+    if (lastNotifiedId === latest.id) return
+
     if (typeof Notification !== 'undefined') {
       if (Notification.permission === 'granted') {
         new Notification(`Looton • ${peerName}`, { body: latest.text })
@@ -546,7 +560,10 @@ export const ChatPage = () => {
         Notification.requestPermission()
       }
     }
-  }, [messages, notificationsEnabled, sender, peerName])
+
+    localStorage.setItem(lastNotifiedKey, latest.id)
+  }, [messages, notificationsEnabled, sender, peerName, lastNotifiedKey])
+
 
   const roomList = [
     {
@@ -641,18 +658,17 @@ export const ChatPage = () => {
           <div className="chat-report card">
             <h4>Open dispute from chat report</h4>
             <p>Select a reason for your appeal/dispute:</p>
-            <select className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as 'not_received' | 'invalid' | 'restored_account' | 'other')}>
-              <option value="not_received">Seller did not deliver the order</option>
-              <option value="invalid">Delivered item/service is invalid</option>
-              <option value="restored_account">Account was restored by original owner</option>
-              <option value="other">Other issue</option>
+            <select className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as Dispute['reasonCode'])}>
+              {reportReasonOptions.map((reason) => (
+                <option key={reason.value} value={reason.value}>{reason.label}</option>
+              ))}
             </select>
             <textarea className="input" placeholder="Describe the problem in detail" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
             <div className="chips">
               <button className="chip active" onClick={() => {
                 if (!window.confirm(DISPUTE_POLICY)) return
                 const details = reportDetails.trim() || `Reason: ${reportReason}`
-                const dispute = openDispute(order.id, details, sender)
+                const dispute = openDispute(order.id, details, sender, reportReason)
                 setReportOpen(false)
                 setReportDetails('')
                 nav(`/dispute/${dispute.id}`)
@@ -693,6 +709,49 @@ export const ChatPage = () => {
         <p>Escrow: active until order completion.</p>
         <p>Never transfer funds outside the platform.</p>
       </aside>
+    </div>
+  )
+}
+
+
+export const MessagesPage = () => {
+  const { user, orders, offers, chatMessages } = useApp()
+
+  const relatedOrders = orders
+    .filter((order) => order.buyerId === user.id || order.sellerId === user.id)
+    .map((order) => {
+      const offer = offers.find((item) => item.id === order.offerId)
+      const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
+      const orderMessages = chatMessages
+        .filter((message) => message.orderId === order.id)
+        .sort((a, b) => b.createdAt - a.createdAt)
+      const latestMessage = orderMessages[0]
+
+      return {
+        order,
+        title: offer?.title ?? order.offerId,
+        peer: `User ${peerId}`,
+        preview: latestMessage?.text ?? 'No messages yet',
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—'
+      }
+    })
+    .sort((a, b) => b.order.createdAt - a.order.createdAt)
+
+  return (
+    <div className="stack">
+      <Card>
+        <h3>Messages</h3>
+        <p>All chat threads with buyers and sellers.</p>
+      </Card>
+      <Card>
+        {relatedOrders.length ? relatedOrders.map((item) => (
+          <Link key={item.order.id} className="row" to={`/order/${item.order.id}/chat`}>
+            <strong>{item.title}</strong>
+            <small>{item.peer} · {item.time}</small>
+            <span>{item.preview}</span>
+          </Link>
+        )) : <p>No conversations yet</p>}
+      </Card>
     </div>
   )
 }
@@ -793,7 +852,7 @@ export const DisputeDetailsPage = () => {
         <p>opened → assigned → decision → escalations</p>
         {d.decision && <p>Winner: {d.decision.winner}</p>}
       </Card>
-      {canAppeal && <p>Appeal can only be initiated from chat report.</p>}
+      {canAppeal && <p>Appeal can only be initiated from the chat report menu.</p>}
       {canCancel && <button className="btn secondary" onClick={() => {
         if (!window.confirm(CANCEL_DISPUTE_WARNING)) return
         cancelDispute(d.id)
@@ -806,11 +865,44 @@ export const ProfilePage = () => {
 
   const { user, setUser } = useApp()
   const roles: Role[] = ['user', 'seller', 'trainee_arb', 'arb', 'senior_arb', 'admin']
+  const demoAccounts = [
+    {
+      id: 1001,
+      username: 'user_1',
+      role: 'seller' as Role,
+      buyerRating: 4.8,
+      sellerRating: 4.9,
+      dealsCount: 124,
+      depositTon: 120,
+      depositStatus: 'active' as const,
+      createdAt: user.createdAt
+    },
+    {
+      id: 1002,
+      username: 'user_2',
+      role: 'user' as Role,
+      buyerRating: 4.6,
+      sellerRating: 4.5,
+      dealsCount: 67,
+      depositTon: 80,
+      depositStatus: 'active' as const,
+      createdAt: user.createdAt
+    }
+  ]
 
   return (
     <div className="stack">
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
+      <Card>
+        <p>Switch demo account</p>
+        <select className="input" value={String(user.id)} onChange={(e) => {
+          const pick = demoAccounts.find((account) => String(account.id) === e.target.value)
+          if (pick) setUser({ ...user, ...pick })
+        }}>
+          {demoAccounts.map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+        </select>
+      </Card>
       <Card>
         <p>Role switch (MVP debug)</p>
         <select className="input" value={user.role} onChange={(e) => setUser({ ...user, role: e.target.value as Role })}>

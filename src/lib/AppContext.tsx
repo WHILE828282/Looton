@@ -15,7 +15,7 @@ type AppState = {
   addOffer: (offer: Offer) => void
   createOrder: (offer: Offer) => Order
   updateOrder: (orderId: string, patch: Partial<Order>) => void
-  openDispute: (orderId: string, message: string, openedBy?: 'buyer' | 'seller') => Dispute
+  openDispute: (orderId: string, message: string, openedBy?: 'buyer' | 'seller', reasonCode?: Dispute['reasonCode']) => Dispute
   assignRandomCase: (workerId: string) => Dispute | undefined
   decideDispute: (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => void
   appealDispute: (disputeId: string) => void
@@ -100,14 +100,19 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     })
   }
 
-  const openDispute = (orderId: string, message: string, openedBy: 'buyer' | 'seller' = 'buyer'): Dispute => {
+  const openDispute = (
+    orderId: string,
+    message: string,
+    openedBy: 'buyer' | 'seller' = 'buyer',
+    reasonCode: Dispute['reasonCode'] = 'other'
+  ): Dispute => {
     updateOrder(orderId, { status: 'disputed' })
 
     const dispute: Dispute = {
       id: uid('disp'),
       orderId,
       openedBy,
-      reasonCode: 'other',
+      reasonCode,
       message,
       evidence: [{ type: 'text', url: message, createdAt: Date.now() }],
       status: 'opened',

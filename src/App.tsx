@@ -8,6 +8,7 @@ import {
   DisputesPage,
   GamePage,
   HomePage,
+  MessagesPage,
   OfferDetailsPage,
   OffersPage,
   OrderDetailsPage,
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/offer/:offerId" element={<OfferDetailsPage />} />
         <Route path="/checkout/:offerId" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
         <Route path="/order/:orderId" element={<OrderDetailsPage />} />
         <Route path="/order/:orderId/chat" element={<ChatPage />} />
         <Route path="/sell" element={<SellPage />} />

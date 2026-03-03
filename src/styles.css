@@ -55,6 +55,14 @@ a {
   font-size: 22px;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .topbar-badge {
   border-radius: 999px;
   padding: 8px 12px;
