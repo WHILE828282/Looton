@@ -489,50 +489,109 @@ export const OrderDetailsPage = () => {
 
 export const ChatPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, chatMessages, sendOrderMessage } = useApp()
+  const { user, orders, offers, chatMessages, sendOrderMessage } = useApp()
   const [draft, setDraft] = useState('')
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
 
+  const offer = offers.find((item) => item.id === order.offerId)
   const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
   const messages = chatMessages
     .filter((m) => m.orderId === order.id)
     .sort((a, b) => a.createdAt - b.createdAt)
 
+  const sellerName = `seller_${order.sellerId}`
+  const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
+  const peerSubtitle = sender === 'buyer' ? 'Продавец онлайн' : 'Покупатель онлайн'
+
+  const roomList = [
+    {
+      id: order.id,
+      title: peerName,
+      preview: (messages.length ? messages[messages.length - 1].text : 'Нет сообщений'),
+      active: true
+    },
+    {
+      id: 'demo-1',
+      title: 'support_looton',
+      preview: 'Официальные уведомления платформы',
+      active: false
+    },
+    {
+      id: 'demo-2',
+      title: 'fast_seller',
+      preview: 'Отправил детали по заказу',
+      active: false
+    }
+  ]
+
   return (
-    <div className="stack">
-      <Card>
-        <h3>Order chat #{order.id.slice(-6)}</h3>
-        <p>Общайтесь только внутри платформы. Это помогает арбитражу и защите эскроу.</p>
-      </Card>
-      <Card>
+    <div className="chat-shell">
+      <aside className="chat-sidebar card">
+        <h2>Сообщения</h2>
+        <div className="chat-room-list">
+          {roomList.map((room) => (
+            <button key={room.id} className={room.active ? 'chat-room active' : 'chat-room'}>
+              <span className="chat-room-title">{room.title}</span>
+              <small>{room.preview}</small>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <section className="chat-main card">
+        <header className="chat-header">
+          <div>
+            <strong>{peerName}</strong>
+            <small>{peerSubtitle}</small>
+          </div>
+          <div className="chat-header-actions">
+            <button className="chip">🔔 Уведомления</button>
+            <button className="chip">⋯</button>
+          </div>
+        </header>
+
         <div className="chat-list">
           {messages.length ? messages.map((message) => (
             <div key={message.id} className={`chat-bubble ${message.sender}`}>
-              <small>{message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}</small>
+              <small>
+                {message.sender === 'system' ? 'Система' : message.sender === 'buyer' ? 'Покупатель' : 'Продавец'}
+                {' · '}
+                {new Date(message.createdAt).toLocaleString()}
+              </small>
               <p>{message.text}</p>
             </div>
           )) : <p>Чат пока пуст.</p>}
         </div>
-      </Card>
-      <Card>
-        <textarea
-          className="input"
-          placeholder="Напишите сообщение продавцу/покупателю"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <button
-          className="btn"
-          onClick={() => {
-            sendOrderMessage(order.id, sender, draft)
-            setDraft('')
-          }}
-        >
-          Send message
-        </button>
-      </Card>
+
+        <div className="chat-composer">
+          <textarea
+            className="input"
+            placeholder="Написать сообщение..."
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <button
+            className="btn"
+            onClick={() => {
+              sendOrderMessage(order.id, sender, draft)
+              setDraft('')
+            }}
+          >
+            ➤
+          </button>
+        </div>
+      </section>
+
+      <aside className="chat-meta card">
+        <h3>Детали сделки</h3>
+        <p>Оффер: {offer?.title ?? order.offerId}</p>
+        <p>Сумма: {order.amountTon} TON</p>
+        <p>Статус: {order.status}</p>
+        <p>Escrow: активен до завершения заказа.</p>
+        <p>Никогда не переводите средства вне платформы.</p>
+      </aside>
     </div>
   )
 }

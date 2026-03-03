@@ -352,3 +352,99 @@ button.chip {
 .chat-bubble.seller {
   justify-self: start;
 }
+
+
+.chat-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.chat-sidebar,
+.chat-main,
+.chat-meta {
+  min-height: 320px;
+}
+
+.chat-sidebar h2 {
+  margin: 0;
+}
+
+.chat-room-list {
+  display: grid;
+  gap: 8px;
+}
+
+.chat-room {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(126, 161, 225, 0.22);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(72, 103, 160, 0.12);
+  color: inherit;
+}
+
+.chat-room.active {
+  border-color: rgba(128, 178, 255, 0.66);
+  background: rgba(52, 113, 216, 0.22);
+}
+
+.chat-room-title {
+  font-weight: 700;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(126, 161, 225, 0.22);
+}
+
+.chat-header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.chat-header small {
+  color: #9cb5d8;
+}
+
+.chat-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-list {
+  display: grid;
+  gap: 8px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.chat-composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.chat-composer .input {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.chat-meta h3,
+.chat-meta p {
+  margin: 0;
+}
+
+@media (min-width: 1100px) {
+  .chat-shell {
+    grid-template-columns: minmax(220px, 0.95fr) minmax(420px, 1.6fr) minmax(220px, 0.9fr);
+    align-items: start;
+  }
+}
