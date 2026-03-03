@@ -314,3 +314,41 @@ button.chip {
     grid-template-columns: 2fr 1fr;
   }
 }
+
+
+.chat-list {
+  display: grid;
+  gap: 8px;
+}
+
+.chat-bubble {
+  max-width: 90%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 157, 220, 0.24);
+  background: rgba(72, 103, 160, 0.14);
+}
+
+.chat-bubble p,
+.chat-bubble small {
+  margin: 0;
+}
+
+.chat-bubble small {
+  color: #9cb5d8;
+}
+
+.chat-bubble.system {
+  max-width: 100%;
+  border-color: rgba(246, 198, 84, 0.4);
+  background: rgba(132, 97, 33, 0.25);
+}
+
+.chat-bubble.buyer {
+  justify-self: end;
+  background: rgba(53, 116, 216, 0.24);
+}
+
+.chat-bubble.seller {
+  justify-self: start;
+}

@@ -106,3 +106,12 @@ export interface StaffMetrics {
   warnings: number
   level: 'trainee' | 'arb' | 'senior'
 }
+
+
+export interface ChatMessage {
+  id: string
+  orderId: string
+  sender: 'system' | 'buyer' | 'seller'
+  text: string
+  createdAt: number
+}

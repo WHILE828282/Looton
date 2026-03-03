@@ -5,7 +5,7 @@ import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+import type { ChatMessage, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -16,6 +16,48 @@ type SellForm = {
   deliveryType: OfferDeliveryType
   payoutPolicy: OfferPayoutPolicy
 }
+
+
+
+const DISPUTE_POLICY = `🔒 Политика разрешения споров и обжалования (Looton)
+
+📌 Что произойдет, если будет открыт спор?
+
+Если по вашему заказу открыт спор:
+• Сделка немедленно замораживается.
+• Средства остаются в безопасности на эскроу-счете.
+• К делу назначается независимый арбитр Looton.
+• Обе стороны должны предоставить доказательства (скриншоты, ID транзакций, историю чата и подтверждение доставки).
+
+⚠️ Важно: Если продавец не выполнил заказ, не отменяйте спор до решения арбитра.`
+
+const COMPLETE_ORDER_WARNING = `⚠️ Подтвердите завершение заказа
+
+Вы уверены, что хотите подтвердить эту покупку?
+
+После подтверждения:
+• Эскроу-защита прекращается
+• Средства будут перечислены продавцу
+• Вы не сможете открыть спор по этому заказу
+
+Если вы не получили товар или услугу в полном объеме — НЕ подтверждайте заказ.`
+
+const CANCEL_DISPUTE_WARNING = `⚠️ Хотите отменить спор?
+
+Вы уверены, что хотите отменить этот спор?
+
+После отмены:
+• Защита депонирования средств прекратится
+• Средства могут быть переданы контрагенту
+• Дело может быть не возобновлено
+
+Если проблема не решена — не отменяйте спор.`
+
+const APPEAL_CONFIRM_STEPS = [
+  'Шаг 1/3: Подтвердите, что прочитали правила спора и арбитража.',
+  'Шаг 2/3: Подтвердите, что понимаете последствия обжалования.',
+  'Шаг 3/3: Финальное подтверждение отправки апелляции.'
+]
 
 const statusTone: Record<OrderStatus, 'neutral' | 'ok' | 'warn' | 'danger'> = {
   created: 'neutral',
@@ -420,12 +462,20 @@ export const OrderDetailsPage = () => {
         </ol>
       </Card>
 
+      <Link className="btn secondary" to={`/order/${order.id}/chat`}>Open order chat</Link>
+
       {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
-      {isBuyer && <button className="btn" onClick={() => updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })}>Confirm received</button>}
+      {isBuyer && <button className="btn" onClick={() => {
+        if (!window.confirm(COMPLETE_ORDER_WARNING)) return
+        updateOrder(order.id, { status: 'confirmed', closedAt: Date.now() })
+      }}>Confirm received</button>}
       {canDispute && (
         <button
           className="btn secondary"
-          onClick={() => nav(`/dispute/${openDispute(order.id, 'Need arbitration', isBuyer ? 'buyer' : 'seller').id}`)}
+          onClick={() => {
+            if (!window.confirm(DISPUTE_POLICY)) return
+            nav(`/dispute/${openDispute(order.id, 'Need arbitration', isBuyer ? 'buyer' : 'seller').id}`)
+          }}
         >
           Open dispute
         </button>
@@ -437,7 +487,58 @@ export const OrderDetailsPage = () => {
   )
 }
 
+export const ChatPage = () => {
+  const { orderId = '' } = useParams()
+  const { user, orders, chatMessages, sendOrderMessage } = useApp()
+  const [draft, setDraft] = useState('')
+  const order = orders.find((o) => o.id === orderId)
+
+  if (!order) return <p>Order not found</p>
+
+  const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const messages = chatMessages
+    .filter((m) => m.orderId === order.id)
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+  return (
+    <div className="stack">
+      <Card>
+        <h3>Order chat #{order.id.slice(-6)}</h3>
+        <p>Общайтесь только внутри платформы. Это помогает арбитражу и защите эскроу.</p>
+      </Card>
+      <Card>
+        <div className="chat-list">
+          {messages.length ? messages.map((message) => (
+            <div key={message.id} className={`chat-bubble ${message.sender}`}>
+              <small>{message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}</small>
+              <p>{message.text}</p>
+            </div>
+          )) : <p>Чат пока пуст.</p>}
+        </div>
+      </Card>
+      <Card>
+        <textarea
+          className="input"
+          placeholder="Напишите сообщение продавцу/покупателю"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <button
+          className="btn"
+          onClick={() => {
+            sendOrderMessage(order.id, sender, draft)
+            setDraft('')
+          }}
+        >
+          Send message
+        </button>
+      </Card>
+    </div>
+  )
+}
+
 export const SellPage = () => {
+
   const { offers, user } = useApp()
   const myOffers = offers.filter((o) => o.sellerId === user.id)
 
@@ -511,12 +612,13 @@ export const DisputesPage = () => {
 
 export const DisputeDetailsPage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, appealDispute } = useApp()
+  const { disputes, appealDispute, cancelDispute } = useApp()
   const d = disputes.find((x) => x.id === disputeId)
 
   if (!d) return <p>Not found</p>
 
   const canAppeal = ['trainee_decided', 'arb_decided'].includes(d.status) && d.appealCount < 1
+  const canCancel = ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(d.status)
 
   return (
     <div className="stack">
@@ -531,12 +633,23 @@ export const DisputeDetailsPage = () => {
         <p>opened → assigned → decision → escalations</p>
         {d.decision && <p>Winner: {d.decision.winner}</p>}
       </Card>
-      {canAppeal && <button className="btn secondary" onClick={() => appealDispute(d.id)}>Appeal</button>}
+      {canAppeal && <button className="btn secondary" onClick={() => {
+        if (!window.confirm(DISPUTE_POLICY)) return
+        for (const step of APPEAL_CONFIRM_STEPS) {
+          if (!window.confirm(step)) return
+        }
+        appealDispute(d.id)
+      }}>Appeal</button>}
+      {canCancel && <button className="btn secondary" onClick={() => {
+        if (!window.confirm(CANCEL_DISPUTE_WARNING)) return
+        cancelDispute(d.id)
+      }}>Cancel dispute</button>}
     </div>
   )
 }
 
 export const ProfilePage = () => {
+
   const { user, setUser } = useApp()
   const roles: Role[] = ['user', 'seller', 'trainee_arb', 'arb', 'senior_arb', 'admin']
 
