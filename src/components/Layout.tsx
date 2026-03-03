@@ -12,7 +12,7 @@ const userTabs = [
 const arbTabs = [
   { to: '/disputes', label: 'Disputes', icon: '⚖️' },
   { to: '/staff', label: 'Queue', icon: '🧭' },
-  { to: '/messages', label: 'Chats', icon: '💬' },
+  { to: '/chats', label: 'Chats', icon: '💬' },
   { to: '/profile', label: 'Profile', icon: '👤' }
 ]
 
@@ -31,7 +31,7 @@ export const Layout = () => {
           <h1 className="topbar-title">Looton Portal</h1>
         </div>
         <div className="topbar-actions">
-          <Link className="topbar-badge" to="/messages">Chat</Link>
+          <Link className="topbar-badge" to="/chats">Chat</Link>
           <span className="topbar-badge">Balance: {user.depositTon.toFixed(2)} TON</span>
         </div>
       </header>
