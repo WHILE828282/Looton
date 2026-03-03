@@ -1,11 +1,12 @@
 import { defaultDisputes, defaultOffers, mockUser } from './mockData'
-import type { Dispute, Offer, Order, User } from '../types'
+import type { ChatMessage, Dispute, Offer, Order, User } from '../types'
 
 const keys = {
   user: 'looton_user',
   offers: 'looton_offers',
   orders: 'looton_orders',
-  disputes: 'looton_disputes'
+  disputes: 'looton_disputes',
+  chats: 'looton_chats'
 }
 
 const load = <T,>(key: string, fallback: T): T => {
@@ -28,5 +29,7 @@ export const db = {
   getOrders: () => load<Order[]>(keys.orders, []),
   setOrders: (o: Order[]) => save(keys.orders, o),
   getDisputes: () => load<Dispute[]>(keys.disputes, defaultDisputes),
-  setDisputes: (d: Dispute[]) => save(keys.disputes, d)
+  setDisputes: (d: Dispute[]) => save(keys.disputes, d),
+  getChats: () => load<ChatMessage[]>(keys.chats, []),
+  setChats: (c: ChatMessage[]) => save(keys.chats, c)
 }
