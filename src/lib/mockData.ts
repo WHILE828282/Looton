@@ -15,9 +15,10 @@ export const mockUser: User = {
 }
 
 export const games: Game[] = [
-  { id: 'mlbb', title: 'Mobile Legends', iconUrl: '/games/mlbb.svg', tags: ['MOBA', 'Top-up'] },
-  { id: 'gta5', title: 'GTA 5', iconUrl: '/games/gta5.svg', tags: ['Accounts', 'Boost'] },
-  { id: 'cs2', title: 'CS2', iconUrl: '/games/cs2.svg', tags: ['Skins', 'Prime'] }
+  { id: 'mlbb', title: 'Mobile Legends', iconUrl: '/games/mlbb/cover.jpeg', tags: ['MOBA', 'Top-up'] },
+  { id: 'gta5', title: 'GTA 5', iconUrl: '/games/gta5/cover.jpeg', tags: ['Accounts', 'Boost'] },
+  { id: 'cs2', title: 'CS2', iconUrl: '/games/cs2/cover.jpeg', tags: ['Skins', 'Prime'] },
+  { id: 'pubg', title: 'PUBG Mobile', iconUrl: '/games/pubg/cover.jpg', tags: ['Battle Royale', 'UC'] }
 ]
 
 export const defaultOffers: Offer[] = [
@@ -62,6 +63,20 @@ export const defaultOffers: Offer[] = [
     sellerStats: { rating: 4.8, deals: 410, depositTon: 110 },
     rules: { autoCloseHours: 24, warrantyText: 'No recovery guarantee.' },
     createdAt: Date.now() - 2400000
+  },
+  {
+    id: 'off-4',
+    gameId: 'pubg',
+    category: 'currency',
+    title: 'PUBG UC Top-up',
+    description: 'Instant UC delivery to your PUBG account.',
+    priceTon: 18,
+    deliveryType: 'instant',
+    payoutPolicy: 'instant_if_deposit',
+    sellerId: 2004,
+    sellerStats: { rating: 4.7, deals: 530, depositTon: 140 },
+    rules: { autoCloseHours: 24, warrantyText: 'Re-send if UC is not credited in 15 minutes.' },
+    createdAt: Date.now() - 1800000
   }
 ]
 

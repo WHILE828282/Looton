@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
@@ -42,17 +42,55 @@ const formatLeftMinutes = (confirmUntil: number) => {
 
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
-const GameIcon = ({ src, alt }: { src: string; alt: string }) => (
-  <img
-    className="game-icon"
-    src={src}
-    alt={alt}
-    loading="lazy"
-    onError={(event) => {
-      event.currentTarget.src = '/icon.svg'
-    }}
-  />
-)
+const iconCandidates = (src: string) => {
+  const normalized = src.trim()
+  const candidates = [normalized]
+
+  if (normalized.endsWith('.jpg')) {
+    candidates.push(normalized.replace('.jpg', '.jpeg'))
+  } else if (normalized.endsWith('.jpeg')) {
+    candidates.push(normalized.replace('.jpeg', '.jpg'))
+  } else {
+    candidates.push(`${normalized}.jpeg`)
+    candidates.push(`${normalized}.jpg`)
+    candidates.push(`${normalized}/cover.jpeg`)
+    candidates.push(`${normalized}/cover.jpg`)
+  }
+
+  candidates.push('/icon.svg')
+  return [...new Set(candidates)]
+}
+
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
+  const candidates = useMemo(() => iconCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  if (index >= candidates.length - 1) {
+    const initials = alt
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
+
+    return <span className="game-icon game-icon-fallback">{initials || 'GM'}</span>
+  }
+
+  return (
+    <img
+      className="game-icon"
+      src={candidates[index]}
+      alt={alt}
+      loading="lazy"
+      onError={() => setIndex((current) => current + 1)}
+    />
+  )
+}
 
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">

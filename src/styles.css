@@ -233,6 +233,16 @@ a {
   background: rgba(16, 27, 46, 0.8);
 }
 
+.game-icon-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #dfeeff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #2b5fad, #3d8bff);
+}
 
 .portal-grid {
   display: grid;
