@@ -55,6 +55,14 @@ a {
   font-size: 22px;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .topbar-badge {
   border-radius: 999px;
   padding: 8px 12px;
@@ -74,6 +82,35 @@ a {
 .stack {
   display: grid;
   gap: 12px;
+}
+
+.search-wrap {
+  position: relative;
+}
+
+.search-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 7;
+  padding: 8px;
+}
+
+.search-suggestion {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(126, 161, 225, 0.24);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(72, 103, 160, 0.14);
+  color: inherit;
+}
+
+.search-suggestion small {
+  color: #a9c0e3;
 }
 
 .market-stats {
@@ -485,4 +522,12 @@ button.chip {
 .chat-menu-item:hover {
   border-color: rgba(128, 178, 255, 0.66);
   background: rgba(52, 113, 216, 0.22);
+}
+
+
+.chat-report {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(255, 179, 71, 0.45);
+  background: rgba(84, 61, 20, 0.2);
 }

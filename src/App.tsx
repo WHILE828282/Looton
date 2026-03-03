@@ -9,6 +9,7 @@ import {
   DisputesPage,
   GamePage,
   HomePage,
+  MessagesPage,
   OfferDetailsPage,
   OffersPage,
   OrderDetailsPage,
