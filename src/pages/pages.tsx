@@ -326,8 +326,13 @@ export const HomePage = () => {
       </Card>
 
       <Card>
-        <h3>New offers</h3>
-        {offers.slice(0, 6).map((o) => <OfferRow key={o.id} offer={o} />)}
+        <h3>Safe deal checklist</h3>
+        <ul>
+          <li>Check seller rating and deposit before purchase.</li>
+          <li>Keep all proofs in chat, including screenshots and delivery data.</li>
+          <li>Use dispute report in chat if delivery is invalid or missing.</li>
+          <li>Never transfer funds outside the platform escrow flow.</li>
+        </ul>
       </Card>
     </div>
   )
