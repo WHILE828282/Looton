@@ -76,6 +76,30 @@ a {
   gap: 12px;
 }
 
+.market-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-cell {
+  display: grid;
+  gap: 3px;
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid rgba(129, 167, 233, 0.25);
+  background: rgba(71, 109, 174, 0.2);
+}
+
+.stat-cell strong {
+  font-size: 16px;
+}
+
+.stat-cell small {
+  color: #b8cae8;
+  font-size: 12px;
+}
+
 .card {
   display: grid;
   gap: 8px;
@@ -233,16 +257,6 @@ a {
   background: rgba(16, 27, 46, 0.8);
 }
 
-.game-icon-fallback {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #dfeeff;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #2b5fad, #3d8bff);
-}
 
 .portal-grid {
   display: grid;
@@ -264,6 +278,11 @@ a {
   background: rgba(72, 103, 160, 0.14);
   font-weight: 600;
   text-transform: capitalize;
+}
+
+.portal-link:hover {
+  border-color: rgba(143, 181, 246, 0.5);
+  background: rgba(83, 121, 186, 0.22);
 }
 
 @media (min-width: 880px) {

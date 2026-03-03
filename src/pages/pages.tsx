@@ -42,55 +42,17 @@ const formatLeftMinutes = (confirmUntil: number) => {
 
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
-const iconCandidates = (src: string) => {
-  const normalized = src.trim()
-  const candidates = [normalized]
-
-  if (normalized.endsWith('.jpg')) {
-    candidates.push(normalized.replace('.jpg', '.jpeg'))
-  } else if (normalized.endsWith('.jpeg')) {
-    candidates.push(normalized.replace('.jpeg', '.jpg'))
-  } else {
-    candidates.push(`${normalized}.jpeg`)
-    candidates.push(`${normalized}.jpg`)
-    candidates.push(`${normalized}/cover.jpeg`)
-    candidates.push(`${normalized}/cover.jpg`)
-  }
-
-  candidates.push('/icon.svg')
-  return [...new Set(candidates)]
-}
-
-const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
-  const candidates = useMemo(() => iconCandidates(src), [src])
-  const [index, setIndex] = useState(0)
-
-  useEffect(() => {
-    setIndex(0)
-  }, [src])
-
-  if (index >= candidates.length - 1) {
-    const initials = alt
-      .split(' ')
-      .filter(Boolean)
-      .map((part) => part[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase()
-
-    return <span className="game-icon game-icon-fallback">{initials || 'GM'}</span>
-  }
-
-  return (
-    <img
-      className="game-icon"
-      src={candidates[index]}
-      alt={alt}
-      loading="lazy"
-      onError={() => setIndex((current) => current + 1)}
-    />
-  )
-}
+const GameIcon = ({ src, alt }: { src: string; alt: string }) => (
+  <img
+    className="game-icon"
+    src={src}
+    alt={alt}
+    loading="lazy"
+    onError={(event) => {
+      event.currentTarget.src = '/icon.svg'
+    }}
+  />
+)
 
 const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
@@ -103,6 +65,11 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 export const HomePage = () => {
   const { offers } = useApp()
   const trending = offers.slice(0, 6)
+  const trustStats = [
+    { label: 'Deals 24h', value: '1,200+' },
+    { label: 'Verified sellers', value: '340+' },
+    { label: 'Avg delivery', value: '8m' }
+  ]
   const popularAccounts = games.map((g) => ({
     id: g.id,
     title: `${g.title} Accounts`,
@@ -115,10 +82,33 @@ export const HomePage = () => {
     to: `/game/${g.id}/offers/currency`,
     iconUrl: g.iconUrl
   }))
+  const popularServices = games.map((g) => ({
+    id: `${g.id}-service`,
+    title: `${g.title} Boosting`,
+    to: `/game/${g.id}/offers/services`,
+    iconUrl: g.iconUrl
+  }))
+  const popularItems = offers.map((o) => ({
+    id: `${o.id}-item`,
+    title: o.title,
+    to: `/offer/${o.id}`,
+    iconUrl: gameIconSrc(o.gameId)
+  }))
 
   return (
     <div className="stack">
       <input className="input" placeholder="Search games, offers, sellers" />
+
+      <Card>
+        <div className="market-stats">
+          {trustStats.map((stat) => (
+            <div key={stat.label} className="stat-cell">
+              <strong>{stat.value}</strong>
+              <small>{stat.label}</small>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Card>
         <h3>Trending 🔥</h3>
@@ -162,6 +152,32 @@ export const HomePage = () => {
         </Card>
       </div>
 
+      <div className="portal-grid">
+        <Card>
+          <h3>Popular Boosting Services</h3>
+          <div className="portal-list">
+            {popularServices.map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3>Popular Items</h3>
+          <div className="portal-list">
+            {popularItems.slice(0, 4).map((item) => (
+              <Link key={item.id} className="portal-link" to={item.to}>
+                <GameIcon src={item.iconUrl} alt={item.title} />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
       <Card>
         <h3>Categories</h3>
         <div className="portal-list">
@@ -193,7 +209,7 @@ export const GamePage = () => {
 
   return (
     <div className="stack">
-      <h2>{game.title}</h2>
+      <h2>{game.title} Market</h2>
       <div className="chips">{game.tags.map((t) => <span className="chip" key={t}>{t}</span>)}</div>
       <Card>
         <h3>Categories</h3>
@@ -215,6 +231,10 @@ export const OffersPage = () => {
 
   return (
     <div className="stack">
+      <Card>
+        <h3>Live offers for {category}</h3>
+        <p>Compare seller score, payout policy and delivery speed before purchase.</p>
+      </Card>
       <div className="chips">{['Deposit only', 'Instant delivery', 'Online', 'Price'].map((f) => <span key={f} className="chip">{f}</span>)}</div>
       <Card>{filtered.length ? filtered.map((o) => <OfferRow key={o.id} offer={o} />) : <p>No offers yet</p>}</Card>
     </div>
