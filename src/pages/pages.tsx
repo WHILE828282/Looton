@@ -62,24 +62,32 @@ const iconCandidates = (src: string) => {
 }
 
 const GameIcon = ({ src, alt }: { src: string; alt: string }) => {
-  const candidates = iconCandidates(src)
+  const candidates = useMemo(() => iconCandidates(src), [src])
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [src])
+
+  if (index >= candidates.length - 1) {
+    const initials = alt
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
+
+    return <span className="game-icon game-icon-fallback">{initials || 'GM'}</span>
+  }
 
   return (
     <img
       className="game-icon"
-      src={candidates[0]}
+      src={candidates[index]}
       alt={alt}
       loading="lazy"
-      data-fallback-index="0"
-      onError={(event) => {
-        const currentIndex = Number(event.currentTarget.dataset.fallbackIndex ?? '0')
-        const nextIndex = currentIndex + 1
-
-        if (nextIndex < candidates.length) {
-          event.currentTarget.dataset.fallbackIndex = String(nextIndex)
-          event.currentTarget.src = candidates[nextIndex]
-        }
-      }}
+      onError={() => setIndex((current) => current + 1)}
     />
   )
 }
@@ -116,10 +124,11 @@ export const HomePage = () => {
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
           {trending.map((offer) => {
+            const iconSrc = gameIconSrc(offer.gameId)
             const game = games.find((g) => g.id === offer.gameId)
             return (
               <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
-                <img src={game?.iconUrl ?? '/icon.svg'} alt={game?.title ?? 'Game'} />
+                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
                 <span>{offer.title}</span>
               </Link>
             )
@@ -133,7 +142,7 @@ export const HomePage = () => {
           <div className="portal-list">
             {popularAccounts.map((item) => (
               <Link key={item.id} className="portal-link" to={item.to}>
-                <img src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
                 <span>{item.title}</span>
               </Link>
             ))}
@@ -145,7 +154,7 @@ export const HomePage = () => {
           <div className="portal-list">
             {popularCurrencies.map((item) => (
               <Link key={item.id} className="portal-link" to={item.to}>
-                <img src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
+                <GameIcon src={item.iconUrl ?? '/icon.svg'} alt={item.title} />
                 <span>{item.title}</span>
               </Link>
             ))}
@@ -160,7 +169,7 @@ export const HomePage = () => {
             const game = games[categories.indexOf(c) % games.length]
             return (
               <Link key={c} className="portal-link" to={`/game/${game.id}/offers/${c}`}>
-                <img src={game.iconUrl ?? '/icon.svg'} alt={c} />
+                <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={c} />
                 <span>{c}</span>
               </Link>
             )
@@ -190,7 +199,7 @@ export const GamePage = () => {
         <h3>Categories</h3>
         {categories.map((c) => (
           <Link className="portal-link" key={c} to={`/game/${game.id}/offers/${c}`}>
-            <img src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
+            <GameIcon src={game.iconUrl ?? '/icon.svg'} alt={game.title} />
             <span>{c}</span>
           </Link>
         ))}
