@@ -2,10 +2,9 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 
 const userTabs = [
-  { to: '/', label: 'Home', icon: '🏠' },
+  { to: '/', label: 'Market', icon: '🏪' },
   { to: '/orders', label: 'Orders', icon: '📦' },
-  { to: '/sell', label: 'Sell', icon: '🛍️' },
-  { to: '/profile', label: 'Profile', icon: '👤' }
+  { to: '/sell', label: 'Sell', icon: '🪙' }
 ]
 
 const arbTabs = [
@@ -21,6 +20,7 @@ export const Layout = () => {
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const tabs = isArbitrator ? arbTabs : userTabs
+  const avatarLetter = (user.username?.[0] ?? 'U').toUpperCase()
 
   return (
     <div className="app">
@@ -39,7 +39,7 @@ export const Layout = () => {
         <Outlet />
       </main>
 
-      <nav className="bottom-nav">
+      <nav className={isArbitrator ? 'bottom-nav' : 'bottom-nav portals'}>
         {tabs.map((tab) => {
           const active = location.pathname === tab.to
           return (
@@ -49,6 +49,12 @@ export const Layout = () => {
             </Link>
           )
         })}
+
+        {!isArbitrator && (
+          <Link className="tg-avatar-btn" to="/profile" aria-label="Open profile">
+            <span className="tg-avatar">{avatarLetter}</span>
+          </Link>
+        )}
       </nav>
     </div>
   )
