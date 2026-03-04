@@ -407,7 +407,6 @@ textarea.input{
   border: 1px solid rgba(255,255,255,0.10);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-
   box-shadow: 0 18px 44px rgba(0,0,0,0.65);
 }
 
@@ -427,7 +426,15 @@ textarea.input{
   transition: background 180ms ease, color 180ms ease, transform 120ms ease, border-color 180ms ease;
 }
 
-.bottom-nav.portals .tab-icon{ font-size: 16px; line-height:1; opacity: 0.9; }
+.bottom-nav.portals .tab-icon{
+  line-height: 1;
+  opacity: 0.9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-nav.portals .tab-icon svg{ width: 18px; height: 18px; }
 
 .bottom-nav.portals .tab.active{
   background: rgba(255,255,255,0.08);

@@ -1,18 +1,99 @@
+import { useMemo } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 
+type IconName = 'market' | 'orders' | 'sell' | 'profile' | 'disputes' | 'queue' | 'chats'
+
+const NavIcon = ({ name }: { name: IconName }) => {
+  if (name === 'market') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5"/>
+        <path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244"/>
+        <path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05"/>
+      </svg>
+    )
+  }
+
+  if (name === 'orders') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73Z"/>
+        <path d="m3.3 7 8.7 5 8.7-5"/>
+        <path d="M12 22V12"/>
+      </svg>
+    )
+  }
+
+  if (name === 'sell') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
+        <path d="M3 6h18"/>
+        <path d="M16 10a4 4 0 0 1-8 0"/>
+      </svg>
+    )
+  }
+
+  if (name === 'disputes') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="m16 16 3 3 3-3"/>
+        <path d="M19 13v6"/>
+        <path d="M5 8h14"/>
+        <path d="M7 8c0-1.7.7-3 2-4"/>
+        <path d="M17 8c0-1.7-.7-3-2-4"/>
+        <path d="M9 8v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8"/>
+      </svg>
+    )
+  }
+
+  if (name === 'queue') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="10"/>
+        <path d="m12 6 4 6-4 6-4-6 4-6z"/>
+      </svg>
+    )
+  }
+
+  if (name === 'chats') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    )
+  }
+
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M6 20a6 6 0 0 1 12 0"/>
+    </svg>
+  )
+}
+
 const userTabs = [
-  { to: '/', label: 'Market', icon: '🏪' },
-  { to: '/orders', label: 'Orders', icon: '📦' },
-  { to: '/sell', label: 'Sell', icon: '🪙' }
+  { to: '/', label: 'Market', icon: 'market' as const },
+  { to: '/orders', label: 'Orders', icon: 'orders' as const },
+  { to: '/sell', label: 'Sell', icon: 'sell' as const }
 ]
 
 const arbTabs = [
-  { to: '/disputes', label: 'Disputes', icon: '⚖️' },
-  { to: '/staff', label: 'Queue', icon: '🧭' },
-  { to: '/chats', label: 'Chats', icon: '💬' },
-  { to: '/profile', label: 'Profile', icon: '👤' }
+  { to: '/disputes', label: 'Disputes', icon: 'disputes' as const },
+  { to: '/staff', label: 'Queue', icon: 'queue' as const },
+  { to: '/chats', label: 'Chats', icon: 'chats' as const },
+  { to: '/profile', label: 'Profile', icon: 'profile' as const }
 ]
+
+const isTabActive = (pathname: string, to: string, isArbitrator: boolean) => {
+  if (to === '/') {
+    if (isArbitrator) return pathname === '/'
+    return !pathname.startsWith('/orders') && !pathname.startsWith('/sell') && !pathname.startsWith('/profile')
+  }
+
+  return pathname === to || pathname.startsWith(`${to}/`)
+}
 
 export const Layout = () => {
   const location = useLocation()
@@ -21,6 +102,13 @@ export const Layout = () => {
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const tabs = isArbitrator ? arbTabs : userTabs
   const avatarLetter = (user.username?.[0] ?? 'U').toUpperCase()
+
+  const tgAvatarUrl = useMemo(() => {
+    if (typeof window === 'undefined') return undefined
+    return (window as Window & {
+      Telegram?: { WebApp?: { initDataUnsafe?: { user?: { photo_url?: string } } } }
+    }).Telegram?.WebApp?.initDataUnsafe?.user?.photo_url
+  }, [])
 
   return (
     <div className="app">
@@ -41,10 +129,10 @@ export const Layout = () => {
 
       <nav className={isArbitrator ? 'bottom-nav' : 'bottom-nav portals'}>
         {tabs.map((tab) => {
-          const active = location.pathname === tab.to
+          const active = isTabActive(location.pathname, tab.to, isArbitrator)
           return (
             <Link key={tab.to} className={active ? 'tab active' : 'tab'} to={tab.to}>
-              <span className="tab-icon" aria-hidden>{tab.icon}</span>
+              <span className="tab-icon" aria-hidden><NavIcon name={tab.icon} /></span>
               <span>{tab.label}</span>
             </Link>
           )
@@ -52,7 +140,9 @@ export const Layout = () => {
 
         {!isArbitrator && (
           <Link className="tg-avatar-btn" to="/profile" aria-label="Open profile">
-            <span className="tg-avatar">{avatarLetter}</span>
+            {tgAvatarUrl
+              ? <img className="tg-avatar" src={tgAvatarUrl} alt="Telegram avatar" />
+              : <span className="tg-avatar tg-avatar-fallback">{avatarLetter}</span>}
           </Link>
         )}
       </nav>
