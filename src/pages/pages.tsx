@@ -975,26 +975,24 @@ export const DisputesPage = () => {
     return () => clearInterval(timer)
   }, [searching])
 
+  const matchesTab = (status: Dispute['status']) => {
+    if (tab === 'all') return true
+    const isClosed = ['final_decided', 'closed'].includes(status)
+    return tab === 'closed' ? isClosed : !isClosed
+  }
+
   const mine = disputes.filter((d) => {
     const order = orders.find((o) => o.id === d.orderId)
     if (!order) return false
-    return order.buyerId === user.id || order.sellerId === user.id
+    return (order.buyerId === user.id || order.sellerId === user.id) && matchesTab(d.status)
   })
 
   const arbPool = disputes.filter((d) => {
-    const mine = isAssignedToStaff(d.assignedTo, user.id, user.username)
-    if (!mine) return false
-    if (tab === 'all') return true
-    const isClosed = ['final_decided', 'closed'].includes(d.status)
-    if (tab === 'closed') return isClosed && mine
-    return !isClosed && (mine || inQueue)
+    const assignedToMe = isAssignedToStaff(d.assignedTo, user.id, user.username)
+    return assignedToMe && matchesTab(d.status)
   })
 
-  const userPool = mine.filter((d) => {
-    if (tab === 'all') return true
-    const isClosed = ['final_decided', 'closed'].includes(d.status)
-    return tab === 'closed' ? isClosed : !isClosed
-  })
+  const userPool = mine
 
   const visible = isArbitrator ? arbPool : userPool
 
