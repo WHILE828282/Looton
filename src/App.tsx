@@ -25,7 +25,7 @@ import {
   StaffPage,
   StaffQueuePage
 } from './pages/pages'
-import { ProfileSupportFaqPage, ProfileSupportPage } from './pages/supportPages'
+import { ProfileSupportPage, ProfileSupportFaqPage } from './pages/supportPages'
 
 export default function App() {
   return (

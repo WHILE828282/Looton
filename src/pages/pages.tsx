@@ -31,27 +31,39 @@ If a dispute is opened for your order:
 
 ⚠️ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
 
-const COMPLETE_ORDER_WARNING = `⚠️ Confirm order completion
+const COMPLETE_ORDER_WARNING = `Confirm Order Completion
 
-Are you absolutely sure you want to confirm this purchase?
+You are about to mark this order as Completed.
 
-After confirmation:
-• Escrow protection ends
-• Funds are released to the seller
-• You will no longer be able to open a dispute for this order
+If you confirm:
+• Escrow protection ends immediately.
+• Payment is released to the seller.
+• You may lose the ability to dispute this order.
 
-If you did not receive the full product/service, DO NOT confirm the order.`
+✅ Confirm ONLY if you have:
+• received the item/service in full,
+• verified access/ownership (accounts/keys/subscriptions),
+• checked that everything matches the listing.
 
-const CANCEL_DISPUTE_WARNING = `⚠️ Cancel dispute?
+❌ Do NOT confirm if:
+• delivery is pending,
+• the item is incorrect/partial,
+• you were asked to confirm “in advance”.
 
-Are you sure you want to cancel this dispute?
+If something is wrong, open a Dispute and wait for arbitration.`
 
-After cancellation:
-• Escrow dispute protection ends
-• Funds may be transferred to the counterparty
-• The case may not be reopened
+const CANCEL_DISPUTE_WARNING = `Cancel Dispute
 
-If your issue is not resolved, do not cancel the dispute.`
+Canceling a dispute is a serious action.
+
+If you cancel:
+• the case is closed,
+• arbitration stops,
+• escrow may be released according to the current order state,
+• reopening may be impossible.
+
+❌ If the order is not fully delivered, DO NOT cancel.
+Wait for the assigned arbitrator and provide evidence.`
 
 const APPEAL_CONFIRM_STEPS = [
   'Step 1/3: Confirm you read the dispute and arbitration policy.',
@@ -1575,6 +1587,7 @@ export const ProfilePage = () => {
     'Общие условия использования',
     'Правила использования сайта'
   ]
+
 
 
 

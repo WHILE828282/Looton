@@ -11,6 +11,226 @@ const FAQ_SECTIONS = [
   '📜 Arbitration Rules'
 ] as const
 
+const getFaqSectionContent = (section: (typeof FAQ_SECTIONS)[number]) => {
+  const content: Record<(typeof FAQ_SECTIONS)[number], string> = {
+  '📜 Looton Platform Rules': LOOTON_PLATFORM_RULES,
+  '⚠️ Confirmation popup before completing an order': `Title: Confirm Order Completion
+
+Body:
+You are about to mark this order as Completed.
+
+If you confirm:
+
+Escrow protection ends immediately.
+
+Payment is released to the seller.
+
+You may lose the ability to dispute this order.
+
+✅ Confirm ONLY if you have:
+
+received the item/service in full,
+
+verified access/ownership (accounts/keys/subscriptions),
+
+checked that everything matches the listing.
+
+❌ Do NOT confirm if:
+
+delivery is pending,
+
+the item is incorrect/partial,
+
+you were asked to confirm “in advance”.
+
+If something is wrong, open a Dispute and wait for arbitration.
+
+Buttons: Cancel / Confirm`,
+  '⚠️ Warning popup before canceling a dispute': `Title: Cancel Dispute
+
+Body:
+Canceling a dispute is a serious action.
+
+If you cancel:
+
+the case is closed,
+
+arbitration stops,
+
+escrow may be released according to the current order state,
+
+reopening may be impossible.
+
+❌ If the order is not fully delivered, DO NOT cancel.
+Wait for the assigned arbitrator and provide evidence.
+
+Buttons: Keep Dispute / Cancel Dispute`,
+  '📜 Terms of Service (legal-style)': `📜 Looton Terms of Service (Short, Dense)
+1) Platform Role
+
+Looton is a marketplace infrastructure (Telegram Mini App) providing listings, escrow, payouts, and dispute resolution. Looton is not the seller and does not guarantee the quality, legality, or availability of user-listed goods.
+
+2) Eligibility & Accounts
+
+Users must use Looton lawfully and keep account access secure. You are responsible for actions under your account. Looton may restrict accounts for risk, abuse, fraud signals, or rule violations.
+
+3) Payments & Escrow
+
+All orders must be paid through Looton escrow (TON). Off-platform payments and contact-sharing to bypass escrow are prohibited. Funds stay locked until completion or a dispute decision.
+
+4) Order Completion
+
+Buyer confirmation is the final step that triggers release of funds. Confirm only after full verification. “Confirm first” requests by sellers are prohibited.
+
+5) Disputes & Evidence
+
+If a problem occurs, open a dispute before confirming completion. Both parties must cooperate and provide evidence when requested. Non-cooperation may lead to a decision against the non-cooperating party.
+
+6) Fees
+
+Looton charges a commission and may charge service fees (e.g., priority features, dispute fees, seller deposit features). Fees are disclosed in the interface and may be updated.
+
+7) Prohibited Activity
+
+Prohibited: fraud/scams, stolen/hacked goods, illegal content, personal data trading, malware, spam services, review manipulation, harassment, discrimination, threats, platform exploitation, and any attempt to move deals outside Looton.
+
+8) Enforcement
+
+Looton may issue warnings, limit features, suspend accounts, freeze funds for investigation, cancel listings, or permanently ban accounts. Severe violations may lead to payout refusal and bans of linked accounts.
+
+9) Changes
+
+Looton may update rules and ToS. Continued use means acceptance of the latest version.`,
+  '📜 Seller Agreement': `📜 Seller Agreement (Short, Dense)
+1) Seller Duties
+
+Sellers must deliver exactly what is listed: correct item/service, correct quantity, correct timeframe. Sellers must communicate reasonably and provide proof of delivery when asked.
+
+2) Listing Standards
+
+Listings must be accurate: correct category, clear description, real availability, fair pricing, no misleading claims. Duplicate/spam listings are prohibited.
+
+3) No Early Confirmation
+
+Sellers must not request completion confirmation before delivery. Violations may disable instant payouts and/or trigger sanctions.
+
+4) Off-Platform Bypass Ban
+
+Sellers must not share contacts, request direct payment, or offer discounts for off-platform deals. This is treated as an attempt to evade escrow and fees.
+
+5) Dispute Cooperation
+
+If a dispute is opened, sellers must respond, provide evidence, and follow arbitration instructions. Ignoring arbitration may result in refunds to the buyer.
+
+6) Seller Deposit & Withdrawals
+
+Looton may offer faster payouts for sellers with a maintained deposit. Withdrawing the deposit may revert payouts to standard timing and may trigger additional checks. Deposits may be used only according to published platform rules (e.g., risk control / dispute outcomes).
+
+7) Sanctions
+
+Looton may remove listings, restrict selling, disable instant payouts, hold withdrawals for review, or ban accounts for violations.`,
+  '📜 Arbitration Rules': `⚖️ Arbitration Rules (Short, Dense, Your System)
+1) Arbitration Levels
+
+Looton uses 3 levels:
+
+Level 1: Trainee Arbitrator — simple cases, first review.
+
+Level 2: Arbitrator — complex cases, escalations.
+
+Level 3: Senior Arbitrator — final decision.
+
+Assignment is randomized; arbitrators do not pick cases.
+
+2) When Disputes Can Be Opened
+
+A dispute may be opened if:
+
+non-delivery / delayed delivery,
+
+wrong item / mismatch to listing,
+
+partial fulfillment,
+
+access revoked / key invalid / subscription not working,
+
+evidence of fraud or manipulation.
+
+Opening a dispute freezes the order and locks escrow until resolution.
+
+3) Evidence Standards
+
+Arbitration decisions are evidence-based. Valid evidence includes:
+
+screenshots and screen recordings,
+
+chat logs inside Looton,
+
+transaction/hash proof (where applicable),
+
+delivery confirmations, account access checks, key redemption checks,
+
+time-stamped proof of work/delivery.
+
+Submitting fake evidence is a severe violation.
+
+4) Arbitrator Requests
+
+Arbitrators may request specific actions:
+
+provide missing proof,
+
+clarify order terms,
+
+verify access live or via recording,
+
+confirm whether delivery occurred.
+
+Ignoring requests or stalling may count against the ignoring party.
+
+5) Possible Outcomes
+
+Arbitration may decide:
+
+Full refund to buyer,
+
+Partial refund (partial delivery / partial mismatch),
+
+Release payment to seller (successful delivery),
+
+Split outcome based on evidence and delivered portion.
+
+6) Appeals
+
+If a party disagrees, they may appeal:
+
+appeal escalates the case to a higher level,
+
+a Senior Arbitrator decision is final.
+Abusive appeals (spam) may be restricted.
+
+7) Fees (Your Model)
+
+A dispute may include an arbitration fee model:
+
+if a party escalates a case to a higher level, the escalation fee applies,
+
+the losing party pays arbitration fees (including escalation fees),
+
+if the outcome changes on appeal, the “losing party” definition updates accordingly.
+
+8) Arbitrator Quality Control
+
+Arbitrators can receive warnings/suspension for repeated incorrect decisions or abuse. Trainees may be removed after multiple warnings. (Internal KYC may apply to arbitration roles.)
+
+9) Final Authority
+
+Looton may override decisions only in exceptional cases (platform safety, proven fraud rings, clear rule violations, technical faults), and may freeze funds during investigations.`
+  }
+
+  return content[section]
+}
+
 const LOOTON_PLATFORM_RULES = `📜 Looton Platform Rules
 
 1. General Provisions
@@ -411,14 +631,14 @@ export const ProfileSupportPage = () => (
 )
 
 export const ProfileSupportFaqPage = () => {
-  const [activeSection, setActiveSection] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState<(typeof FAQ_SECTIONS)[number] | null>(null)
 
   return (
     <div className="stack">
       <Card>
         <h3>FAQ</h3>
         <p>Available sections:</p>
-        {FAQ_SECTIONS.map((section, index) => (
+        {FAQ_SECTIONS.map((section) => (
           <button
             key={section}
             className="row"
@@ -426,22 +646,15 @@ export const ProfileSupportFaqPage = () => {
             onClick={() => setActiveSection(section)}
           >
             <strong>{section}</strong>
-            <small>{index === 0 ? 'Available now' : 'Coming next'}</small>
+            <small>{activeSection === section ? 'Opened' : 'Open section'}</small>
           </button>
         ))}
       </Card>
 
-      {activeSection === '📜 Looton Platform Rules' && (
-        <Card>
-          <h4>📜 Looton Platform Rules</h4>
-          <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>{LOOTON_PLATFORM_RULES}</pre>
-        </Card>
-      )}
-
-      {activeSection && activeSection !== '📜 Looton Platform Rules' && (
+      {activeSection && (
         <Card>
           <h4>{activeSection}</h4>
-          <p>This section will be added next.</p>
+          <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>{getFaqSectionContent(activeSection)}</pre>
         </Card>
       )}
     </div>
