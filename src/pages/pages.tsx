@@ -146,6 +146,7 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 export const HomePage = () => {
   const { offers, user } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
 
   const trendingSections = [
@@ -452,6 +453,7 @@ export const CheckoutPage = () => {
   const { offers, createOrder } = useApp()
   const { offerId = '' } = useParams()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const offer = offers.find((o) => o.id === offerId)
   const [connected, setConnected] = useState(false)
 
@@ -902,6 +904,7 @@ export const SellPage = () => {
 export const SellNewPage = () => {
   const { addOffer, user } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState<SellForm>({
     gameId: games[0].id,
     category: categories[0],
@@ -961,6 +964,7 @@ export const DisputesPage = () => {
   const [seconds, setSeconds] = useState(0)
   const [searchResult, setSearchResult] = useState<string>('')
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const staffKey = getStaffAssigneeKey(user.id, user.username)
@@ -982,7 +986,8 @@ export const DisputesPage = () => {
     if (!mine) return false
     if (tab === 'all') return true
     const isClosed = ['final_decided', 'closed'].includes(d.status)
-    return tab === 'closed' ? isClosed : !isClosed
+    if (tab === 'closed') return isClosed && mine
+    return !isClosed && (mine || inQueue)
   })
 
   const userPool = mine.filter((d) => {
