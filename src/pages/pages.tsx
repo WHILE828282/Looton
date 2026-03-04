@@ -660,8 +660,8 @@ export const HomePage = () => {
       <Card>
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
-          {trendingSections.map((section) => (
-            <Link key={section.id} className="trending-item" to={section.to}>
+          {trendingSections.map((section, index) => (
+            <Link key={section.id} className={`trending-item ${index === 0 ? 'active' : ''}`} to={section.to}>
               <GameIcon src={section.iconUrl} alt={section.title} />
               <span>{section.title}</span>
             </Link>
@@ -906,11 +906,11 @@ export const OrdersPage = () => {
 
   return (
     <div className="stack">
-      <div className="chips">
+      <div className="chips segmented">
         {hasBuyerOrders && <button className={`chip ${mode === 'buyer' ? 'active' : ''}`} onClick={() => setMode('buyer')}>Buyer</button>}
         {hasSellerOrders && <button className={`chip ${mode === 'seller' ? 'active' : ''}`} onClick={() => setMode('seller')}>Seller</button>}
-        <button className="chip" onClick={() => setTab('active')}>Active</button>
-        <button className="chip" onClick={() => setTab('completed')}>Completed</button>
+        <button className={`chip ${tab === 'active' ? 'active' : ''}`} onClick={() => setTab('active')}>Active</button>
+        <button className={`chip ${tab === 'completed' ? 'active' : ''}`} onClick={() => setTab('completed')}>Completed</button>
       </div>
       <Card>
         {view.length ? view.map((o) => (
