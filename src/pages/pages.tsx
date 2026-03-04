@@ -545,6 +545,7 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
 export const HomePage = () => {
   const { offers, user } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
 
   const trendingSections = [
@@ -851,6 +852,7 @@ export const CheckoutPage = () => {
   const { offers, createOrder } = useApp()
   const { offerId = '' } = useParams()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const offer = offers.find((o) => o.id === offerId)
   const [connected, setConnected] = useState(false)
 
@@ -1313,6 +1315,7 @@ export const SellPage = () => {
 export const SellNewPage = () => {
   const { addOffer, user } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState<SellForm>({
     gameId: games[0].id,
     category: categories[0],
@@ -1372,6 +1375,7 @@ export const DisputesPage = () => {
   const [seconds, setSeconds] = useState(0)
   const [searchResult, setSearchResult] = useState<string>('')
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const staffKey = getStaffAssigneeKey(user.id, user.username)
@@ -1549,6 +1553,32 @@ export const ProfilePage = () => {
       createdAt: user.createdAt
     }
   ]
+  const settingsPrimary = [
+    { icon: '🈯', label: 'Язык', value: 'Русский' },
+    { icon: '💲', label: 'Валюта кошелька', value: 'USD' },
+    { icon: '🕒', label: 'Часовой пояс', value: 'UTC+3' },
+    { icon: '🌓', label: 'Тема', value: 'Авто' },
+    { icon: '🛠️', label: 'Настройки биржи', value: '' }
+  ]
+
+  const settingsSecondary = [
+    { icon: '🔗', label: 'Подключенные кошельки', value: '0', description: 'Вы можете привязать свой TON кошелёк, чтобы выводить средства прямо на него' },
+    { icon: '🧾', label: 'Счета', value: 'Перейти' },
+    { icon: '⭐', label: 'Чеки', value: 'Перейти' },
+    { icon: '🧑‍🤝‍🧑', label: 'Реферальная ссылка', value: 'Скопировать' },
+    { icon: '🛟', label: 'Поддержка', value: 'Перейти' }
+  ]
+
+  const legalLinks = [
+    'Политика AML',
+    'Политика конфиденциальности',
+    'Общие условия использования',
+    'Правила использования сайта'
+  ]
+
+
+
+
 
 
   return (
@@ -1663,6 +1693,51 @@ export const ProfileSupportFaqPage = () => {
     </div>
   )
 }
+
+export const ProfileSupportPage = () => (
+  <div className="stack">
+    <Card>
+      <h3>Support center</h3>
+      <p>Select what you need:</p>
+      <div className="row">
+        <strong>📝 Write a complaint</strong>
+        <small>Open a complaint ticket ›</small>
+      </div>
+      <Link className="row" to="/disputes">
+        <strong>⚖️ Disputes</strong>
+        <small>Open disputes section ›</small>
+      </Link>
+      <div className="row">
+        <strong>💬 Contact support</strong>
+        <small>Start support chat ›</small>
+      </div>
+      <Link className="row" to="/profile/support/faq">
+        <strong>❓ FAQ</strong>
+        <small>Read common questions ›</small>
+      </Link>
+    </Card>
+  </div>
+)
+
+export const ProfileSupportFaqPage = () => (
+  <div className="stack">
+    <Card>
+      <h3>FAQ</h3>
+      <p>Available sections:</p>
+      {FAQ_SECTIONS.map((section, index) => (
+        <div className="row" key={section}>
+          <strong>{section}</strong>
+          <small>{index === 0 ? 'Available now' : 'Coming next'}</small>
+        </div>
+      ))}
+    </Card>
+
+    <Card>
+      <h4>📜 Looton Platform Rules</h4>
+      <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>{LOOTON_PLATFORM_RULES}</pre>
+    </Card>
+  </div>
+)
 
 export const DepositPage = () => {
   const { user, setUser } = useApp()
