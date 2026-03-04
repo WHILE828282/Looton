@@ -22,8 +22,7 @@ import {
   StaffPage,
   StaffQueuePage
 } from './pages/pages'
-// Support pages must stay in dedicated module import (required by check:app-support-imports)
-import { ProfileSupportPage, ProfileSupportFaqPage } from './pages/supportPages';
+import { ProfileSupportPage, ProfileSupportFaqPage } from './pages/supportPages'
 
 export default function App() {
   return (
