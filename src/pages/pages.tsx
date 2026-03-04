@@ -660,8 +660,8 @@ export const HomePage = () => {
       <Card>
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
-          {trendingSections.map((section) => (
-            <Link key={section.id} className="trending-item" to={section.to}>
+          {trendingSections.map((section, index) => (
+            <Link key={section.id} className={`trending-item ${index === 0 ? 'active' : ''}`} to={section.to}>
               <GameIcon src={section.iconUrl} alt={section.title} />
               <span>{section.title}</span>
             </Link>
