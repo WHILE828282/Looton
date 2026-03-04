@@ -496,14 +496,23 @@ export const OrdersPage = () => {
   const [mode, setMode] = useState<'buyer' | 'seller'>('buyer')
   const [tab, setTab] = useState<'active' | 'completed'>('active')
 
-  const modeOrders = orders.filter((o) => (mode === 'buyer' ? o.buyerId === user.id : o.sellerId === user.id))
+  const ownedOrders = orders.filter((o) => o.buyerId === user.id || o.sellerId === user.id)
+  const hasBuyerOrders = ownedOrders.some((o) => o.buyerId === user.id)
+  const hasSellerOrders = ownedOrders.some((o) => o.sellerId === user.id)
+
+  useEffect(() => {
+    if (mode === 'buyer' && !hasBuyerOrders && hasSellerOrders) setMode('seller')
+    if (mode === 'seller' && !hasSellerOrders && hasBuyerOrders) setMode('buyer')
+  }, [mode, hasBuyerOrders, hasSellerOrders])
+
+  const modeOrders = ownedOrders.filter((o) => (mode === 'buyer' ? o.buyerId === user.id : o.sellerId === user.id))
   const view = modeOrders.filter((o) => (tab === 'active' ? !isCompletedStatus(o.status) : isCompletedStatus(o.status)))
 
   return (
     <div className="stack">
       <div className="chips">
-        <button className="chip" onClick={() => setMode('buyer')}>Buyer</button>
-        <button className="chip" onClick={() => setMode('seller')}>Seller</button>
+        {hasBuyerOrders && <button className={`chip ${mode === 'buyer' ? 'active' : ''}`} onClick={() => setMode('buyer')}>Buyer</button>}
+        {hasSellerOrders && <button className={`chip ${mode === 'seller' ? 'active' : ''}`} onClick={() => setMode('seller')}>Seller</button>}
         <button className="chip" onClick={() => setTab('active')}>Active</button>
         <button className="chip" onClick={() => setTab('completed')}>Completed</button>
       </div>
@@ -513,7 +522,7 @@ export const OrdersPage = () => {
             {offers.find((f) => f.id === o.offerId)?.title ?? o.offerId}
             <small>{mode} · <StatusBadge status={o.status} /> · {o.amountTon} TON</small>
           </Link>
-        )) : <p>No orders in this view</p>}
+        )) : <p>No personal orders in this view</p>}
       </Card>
     </div>
   )
@@ -525,6 +534,9 @@ export const OrderDetailsPage = () => {
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
+
+  const isParticipant = user.id === order.buyerId || user.id === order.sellerId
+  if (!isParticipant) return <p>Order not available for this account.</p>
 
   const offer = offers.find((o) => o.id === order.offerId)
   const canDispute = canOpenDispute(order)
@@ -1182,6 +1194,7 @@ export const ProfilePage = () => {
 
 
 
+
   return (
     <div className="stack">
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
@@ -1246,12 +1259,12 @@ export const ProfileSupportPage = () => (
         <small>Open disputes section ›</small>
       </Link>
       <div className="row">
-        <strong>❓ FAQ</strong>
-        <small>Read common questions ›</small>
-      </div>
-      <div className="row">
         <strong>💬 Contact support</strong>
         <small>Start support chat ›</small>
+      </div>
+      <div className="row">
+        <strong>❓ FAQ</strong>
+        <small>Read common questions ›</small>
       </div>
     </Card>
   </div>
