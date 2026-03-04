@@ -5,7 +5,6 @@ const userTabs = [
   { to: '/', label: 'Home', icon: '🏠' },
   { to: '/orders', label: 'Orders', icon: '📦' },
   { to: '/sell', label: 'Sell', icon: '🛍️' },
-  { to: '/disputes', label: 'Disputes', icon: '⚖️' },
   { to: '/profile', label: 'Profile', icon: '👤' }
 ]
 
@@ -27,8 +26,8 @@ export const Layout = () => {
     <div className="app">
       <header className="topbar">
         <div>
-          <p className="topbar-eyebrow">eldarado.gg style marketplace</p>
-          <h1 className="topbar-title">Looton Portal</h1>
+          <p className="topbar-eyebrow">secure gaming marketplace</p>
+          <h1 className="topbar-title">Looton Market</h1>
         </div>
         <div className="topbar-actions">
           <Link className="topbar-badge" to="/chats">Chat</Link>

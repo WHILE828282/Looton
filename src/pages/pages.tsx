@@ -983,8 +983,8 @@ export const DisputesPage = () => {
 
   const arbPool = disputes.filter((d) => {
     const mine = isAssignedToStaff(d.assignedTo, user.id, user.username)
-    const inQueue = !d.assignedTo
-    if (tab === 'all') return mine || inQueue
+    if (!mine) return false
+    if (tab === 'all') return true
     const isClosed = ['final_decided', 'closed'].includes(d.status)
     if (tab === 'closed') return isClosed && mine
     return !isClosed && (mine || inQueue)
@@ -1009,7 +1009,7 @@ export const DisputesPage = () => {
       {isArbitrator && (
         <Card>
           <h3>Arbitrator queue</h3>
-          <p>Current disputes · Resolved disputes · All disputes</p>
+          <p>Your assigned disputes only. Use search to take a new case.</p>
           <div className="chips">
             {!searching && <button className="chip active" onClick={() => {
               setSearching(true)
@@ -1144,9 +1144,73 @@ export const ProfilePage = () => {
       createdAt: user.createdAt
     }
   ]
+  const settingsPrimary = [
+    { icon: '🈯', label: 'Язык', value: 'Русский' },
+    { icon: '💲', label: 'Валюта кошелька', value: 'USD' },
+    { icon: '🕒', label: 'Часовой пояс', value: 'UTC+3' },
+    { icon: '🌓', label: 'Тема', value: 'Авто' },
+    { icon: '🛠️', label: 'Настройки биржи', value: '' }
+  ]
+
+  const settingsSecondary = [
+    { icon: '🔗', label: 'Подключенные кошельки', value: '0', description: 'Вы можете привязать свой TON кошелёк, чтобы выводить средства прямо на него' },
+    { icon: '🧾', label: 'Счета', value: 'Перейти' },
+    { icon: '⭐', label: 'Чеки', value: 'Перейти' },
+    { icon: '🧑‍🤝‍🧑', label: 'Реферальная ссылка', value: 'Скопировать' },
+    { icon: '🛟', label: 'Поддержка', value: 'Перейти' }
+  ]
+
+  const legalLinks = [
+    'Политика AML',
+    'Политика конфиденциальности',
+    'Общие условия использования',
+    'Правила использования сайта'
+  ]
+
 
   return (
     <div className="stack">
+      <Card>
+        <h3>Настройки</h3>
+        {settingsPrimary.map((item) => (
+          <div className="row" key={item.label}>
+            <strong>{item.icon} {item.label}</strong>
+            <small>{item.value || 'Перейти'} ›</small>
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        {settingsSecondary.map((item) => (
+          <div className="row" key={item.label}>
+            <strong>{item.icon} {item.label}</strong>
+            <small>{item.value} ›</small>
+            {'description' in item && item.description ? <span>{item.description}</span> : null}
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        <h4>Поддержка</h4>
+        <Link className="row" to="/disputes">
+          <strong>⚖️ Disputes</strong>
+          <small>Открыть раздел споров ›</small>
+        </Link>
+        <div className="row">
+          <strong>🛟 Поддержка</strong>
+          <small>Перейти ›</small>
+        </div>
+      </Card>
+
+      <Card>
+        {legalLinks.map((item) => (
+          <div className="row" key={item}>
+            <strong>{item}</strong>
+            <small>›</small>
+          </div>
+        ))}
+      </Card>
+
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
       <Card>
