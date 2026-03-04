@@ -1580,6 +1580,7 @@ export const ProfilePage = () => {
 
 
 
+
   return (
     <div className="stack">
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
@@ -1630,50 +1631,7 @@ export const ProfilePage = () => {
   )
 }
 
-export const ProfileSupportPage = () => (
-  <div className="stack">
-    <Card>
-      <h3>Support center</h3>
-      <p>Select what you need:</p>
-      <div className="row">
-        <strong>📝 Write a complaint</strong>
-        <small>Open a complaint ticket ›</small>
-      </div>
-      <Link className="row" to="/disputes">
-        <strong>⚖️ Disputes</strong>
-        <small>Open disputes section ›</small>
-      </Link>
-      <div className="row">
-        <strong>💬 Contact support</strong>
-        <small>Start support chat ›</small>
-      </div>
-      <Link className="row" to="/profile/support/faq">
-        <strong>❓ FAQ</strong>
-        <small>Read common questions ›</small>
-      </Link>
-    </Card>
-  </div>
-)
 
-export const ProfileSupportFaqPage = () => (
-  <div className="stack">
-    <Card>
-      <h3>FAQ</h3>
-      <p>Available sections:</p>
-      {FAQ_SECTIONS.map((section, index) => (
-        <div className="row" key={section}>
-          <strong>{section}</strong>
-          <small>{index === 0 ? 'Available now' : 'Coming next'}</small>
-        </div>
-      ))}
-    </Card>
-
-    <Card>
-      <h4>📜 Looton Platform Rules</h4>
-      <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>{LOOTON_PLATFORM_RULES}</pre>
-    </Card>
-  </div>
-)
 
 export const DepositPage = () => {
   const { user, setUser } = useApp()
