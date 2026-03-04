@@ -1594,6 +1594,7 @@ export const ProfilePage = () => {
 
 
 
+
   return (
     <div className="stack">
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
