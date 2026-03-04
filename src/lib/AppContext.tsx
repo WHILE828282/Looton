@@ -20,7 +20,13 @@ type AppState = {
   decideDispute: (disputeId: string, winner: 'buyer' | 'seller', text: string, decidedBy: string) => void
   appealDispute: (disputeId: string) => void
   cancelDispute: (disputeId: string) => void
-  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller', text: string) => void
+  sendOrderMessage: (orderId: string, sender: 'buyer' | 'seller' | 'arb', text: string, arbAlias?: string, imageUrl?: string) => void
+  joinDisputeChat: (disputeId: string, arbAlias: string) => void
+  declineAssignedCase: (
+    disputeId: string,
+    reasonText: string,
+    reasonType: 'unjustified' | 'lack_expertise'
+  ) => { ok: boolean; message: string }
 }
 
 const Context = createContext<AppState | null>(null)
@@ -145,12 +151,21 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     const pick = available[Math.floor(Math.random() * available.length)]
     const assignedStatus: DisputeStatus = pick.status === 'opened' ? 'assigned_trainee' : pick.status
 
+    const defaultAlias = pick.arbitratorAlias || `arb_${workerId}`
     const next: Dispute[] = disputes.map((d) =>
-      d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus } : d
+      d.id === pick.id ? { ...d, assignedTo: workerId, status: assignedStatus, arbitratorAlias: defaultAlias } : d
     )
 
     setDisputes(next)
     db.setDisputes(next)
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId: pick.orderId,
+      sender: 'system',
+      text: `⚖️ Dispute ${pick.id} assigned to arbitrator ${defaultAlias}.`,
+      createdAt: Date.now()
+    })
 
     return next.find((d) => d.id === pick.id)
   }
@@ -181,6 +196,14 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       const orderStatus = winner === 'buyer' ? 'resolved_buyer' : 'resolved_seller'
       updateOrder(dispute.orderId, { status: orderStatus, closedAt: Date.now() })
 
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: dispute.orderId,
+        sender: 'system',
+        text: `✅ Dispute resolved: ${winner} wins. Reason: ${text.trim() || 'Decision submitted.'}`,
+        createdAt: Date.now()
+      })
+
       if (winner === 'buyer' && isInstantEligible(user)) {
         setUser({ ...user, depositTon: Math.max(0, user.depositTon - 5) })
       }
@@ -191,6 +214,8 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
   }
 
   const appealDispute = (disputeId: string) => {
+    let escalatedOrderId: string | undefined
+
     setDisputes((prev) => {
       const next: Dispute[] = prev.map((d) => {
         if (d.id !== disputeId || d.appealCount >= 1) {
@@ -204,6 +229,10 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
               ? 'escalated_to_senior'
               : d.status
 
+        if (status !== d.status) {
+          escalatedOrderId = d.orderId
+        }
+
         return {
           ...d,
           status,
@@ -215,6 +244,16 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       db.setDisputes(next)
       return next
     })
+
+    if (escalatedOrderId) {
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: escalatedOrderId,
+        sender: 'system',
+        text: '📌 Dispute was escalated to the next arbitration level after appeal.',
+        createdAt: Date.now()
+      })
+    }
   }
 
   const cancelDispute = (disputeId: string) => {
@@ -247,17 +286,158 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     })
   }
 
-  const sendOrderMessage = (orderId: string, sender: 'buyer' | 'seller', text: string) => {
+  const sendOrderMessage = (
+    orderId: string,
+    sender: 'buyer' | 'seller' | 'arb',
+    text: string,
+    arbAlias?: string,
+    imageUrl?: string
+  ) => {
     const message = text.trim()
-    if (!message) return
+    if (!message && !imageUrl) return
 
     appendChatMessage({
       id: uid('chat'),
       orderId,
       sender,
-      text: message,
-      createdAt: Date.now()
+      text: message || 'Image attached',
+      createdAt: Date.now(),
+      arbAlias: sender === 'arb' ? (arbAlias?.trim() || 'Arbitrator') : undefined,
+      imageUrl
     })
+  }
+
+  const joinDisputeChat = (disputeId: string, arbAlias: string) => {
+    const target = disputes.find((item) => item.id === disputeId)
+    if (!target) return
+
+    const alias = arbAlias.trim() || 'Arbitrator'
+
+    const joinEventText = `⚖️ Arbitrator ${alias} joined the dispute chat.`
+    const alreadyJoined = chatMessages.some(
+      (item) => item.orderId === target.orderId && item.sender === 'system' && item.text === joinEventText
+    )
+
+    if (!alreadyJoined) {
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: target.orderId,
+        sender: 'system',
+        text: joinEventText,
+        createdAt: Date.now()
+      })
+    }
+
+    setDisputes((prev) => {
+      const next = prev.map((item) => (item.id === disputeId ? { ...item, arbitratorAlias: item.arbitratorAlias || alias } : item))
+      db.setDisputes(next)
+      return next
+    })
+  }
+
+  const declineAssignedCase = (
+    disputeId: string,
+    reasonText: string,
+    reasonType: 'unjustified' | 'lack_expertise'
+  ): { ok: boolean; message: string } => {
+    const reason = reasonText.trim()
+    const workerKey = `${user.id}:${user.username}`
+    const now = Date.now()
+
+    if (['senior_arb', 'admin'].includes(user.role)) {
+      return { ok: false, message: 'Senior arbitrators cannot decline assigned disputes.' }
+    }
+
+    if ((user.arbSuspendedUntil ?? 0) > now) {
+      return { ok: false, message: 'You are suspended and cannot process disputes now.' }
+    }
+
+    if ((user.arbDeclineCooldownUntil ?? 0) > now) {
+      return { ok: false, message: 'Cooldown active for declines. Please wait before taking further actions.' }
+    }
+
+    if (reason.length < 30) {
+      return { ok: false, message: 'Please provide a detailed reason (at least 30 characters).' }
+    }
+
+    const target = disputes.find((item) => item.id === disputeId)
+    if (!target) {
+      return { ok: false, message: 'Dispute not found.' }
+    }
+
+    const assignedMatches = target.assignedTo === workerKey || target.assignedTo === String(user.id)
+    if (!assignedMatches) {
+      return { ok: false, message: 'This dispute is not assigned to you.' }
+    }
+
+    let warningIncrement = 0
+    let freeDeclineUsed = user.arbFreeDeclineUsed ?? false
+
+    if (reasonType === 'lack_expertise') {
+      warningIncrement = 0.5
+    } else if (freeDeclineUsed) {
+      warningIncrement = 1
+    } else {
+      freeDeclineUsed = true
+    }
+
+    const nextWarnings = (user.arbWarnings ?? 0) + warningIncrement
+    const suspendedUntil = nextWarnings >= 3 ? now + 30 * 24 * 60 * 60 * 1000 : user.arbSuspendedUntil
+    const cooldownUntil = now + 30 * 60 * 1000
+
+    const fallbackStatus: DisputeStatus =
+      target.status === 'assigned_trainee'
+        ? 'opened'
+        : target.status === 'escalated_to_senior'
+          ? 'escalated_to_senior'
+          : 'escalated_to_arb'
+    const nextDisputes = disputes.map((item) =>
+      item.id === disputeId
+        ? {
+            ...item,
+            assignedTo: undefined,
+            status: fallbackStatus
+          }
+        : item
+    )
+
+    setDisputes(nextDisputes)
+    db.setDisputes(nextDisputes)
+
+    const nextUser: User = {
+      ...user,
+      arbWarnings: nextWarnings,
+      arbDeclinesCount: (user.arbDeclinesCount ?? 0) + 1,
+      arbFreeDeclineUsed: freeDeclineUsed,
+      arbDeclineCooldownUntil: cooldownUntil,
+      arbSuspendedUntil: suspendedUntil
+    }
+    setUser(nextUser)
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId: target.orderId,
+      sender: 'system',
+      text: `⚠️ Arbitrator declined dispute ${target.id}. Reason: ${reason}`,
+      createdAt: now
+    })
+
+    if (warningIncrement > 0) {
+      appendChatMessage({
+        id: uid('chat'),
+        orderId: target.orderId,
+        sender: 'system',
+        text: `⚠️ Arbitrator warning issued (+${warningIncrement}). Total warnings: ${nextWarnings}.`,
+        createdAt: now
+      })
+    }
+
+    return {
+      ok: true,
+      message: suspendedUntil && suspendedUntil > now
+        ? 'Dispute declined. You reached 3 warnings and are suspended for 30 days.'
+        : 'Dispute declined successfully. 30-minute cooldown has been applied.'
+    }
   }
 
   const value = useMemo(
@@ -276,7 +456,9 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       decideDispute,
       appealDispute,
       cancelDispute,
-      sendOrderMessage
+      sendOrderMessage,
+      joinDisputeChat,
+      declineAssignedCase
     }),
     [user, offers, orders, disputes, chatMessages]
   )
