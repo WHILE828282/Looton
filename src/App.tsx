@@ -15,6 +15,7 @@ import {
   OrderDetailsPage,
   OrdersPage,
   ProfilePage,
+  ProfileSupportFaqPage,
   ProfileSupportPage,
   RoleGate,
   SellNewPage,
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/dispute/:disputeId" element={<DisputeDetailsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/support" element={<ProfileSupportPage />} />
+        <Route path="/profile/support/faq" element={<ProfileSupportFaqPage />} />
         <Route path="/deposit" element={<DepositPage />} />
         <Route path="/staff" element={<RoleGate><StaffPage /></RoleGate>} />
         <Route path="/staff/queue" element={<RoleGate><StaffQueuePage /></RoleGate>} />
