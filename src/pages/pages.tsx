@@ -92,6 +92,21 @@ const isAssignedToStaff = (assignedTo: string | undefined, userId: number, usern
 
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
+const PROFILE_SETTINGS_PRIMARY = [
+  { icon: '🌐', label: 'Language', value: 'English' },
+  { icon: '💲', label: 'Wallet currency', value: 'USD' },
+  { icon: '🕒', label: 'Timezone', value: 'UTC+3' },
+  { icon: '🌓', label: 'Theme', value: 'Auto' },
+  { icon: '🛠️', label: 'Exchange settings', value: 'Open' }
+] as const
+
+const PROFILE_LEGAL_LINKS = [
+  'AML Policy',
+  'Privacy Policy',
+  'Terms of Use',
+  'Website Usage Rules'
+] as const
+
 const iconCandidates = (src: string) => {
   const normalized = src.trim()
   const candidates = [normalized]
@@ -1166,49 +1181,9 @@ export const ProfilePage = () => {
   ]
 
 
+
   return (
     <div className="stack">
-      <Card>
-        <h3>Настройки</h3>
-        {settingsPrimary.map((item) => (
-          <div className="row" key={item.label}>
-            <strong>{item.icon} {item.label}</strong>
-            <small>{item.value || 'Перейти'} ›</small>
-          </div>
-        ))}
-      </Card>
-
-      <Card>
-        {settingsSecondary.map((item) => (
-          <div className="row" key={item.label}>
-            <strong>{item.icon} {item.label}</strong>
-            <small>{item.value} ›</small>
-            {'description' in item && item.description ? <span>{item.description}</span> : null}
-          </div>
-        ))}
-      </Card>
-
-      <Card>
-        <h4>Поддержка</h4>
-        <Link className="row" to="/disputes">
-          <strong>⚖️ Disputes</strong>
-          <small>Открыть раздел споров ›</small>
-        </Link>
-        <div className="row">
-          <strong>🛟 Поддержка</strong>
-          <small>Перейти ›</small>
-        </div>
-      </Card>
-
-      <Card>
-        {legalLinks.map((item) => (
-          <div className="row" key={item}>
-            <strong>{item}</strong>
-            <small>›</small>
-          </div>
-        ))}
-      </Card>
-
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
       <Card>
@@ -1226,9 +1201,61 @@ export const ProfilePage = () => {
           {roles.map((r) => <option key={r}>{r}</option>)}
         </select>
       </Card>
+
+      <Card>
+        <h3>Settings</h3>
+        {PROFILE_SETTINGS_PRIMARY.map((item) => (
+          <div className="row" key={item.label}>
+            <strong>{item.icon} {item.label}</strong>
+            <small>{item.value} ›</small>
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        <h4>Support</h4>
+        <Link className="row" to="/profile/support">
+          <strong>🛟 Open support center</strong>
+          <small>Choose complaint, disputes, FAQ and more ›</small>
+        </Link>
+      </Card>
+
+      <Card>
+        {PROFILE_LEGAL_LINKS.map((item) => (
+          <div className="row" key={item}>
+            <strong>{item}</strong>
+            <small>›</small>
+          </div>
+        ))}
+      </Card>
     </div>
   )
 }
+
+export const ProfileSupportPage = () => (
+  <div className="stack">
+    <Card>
+      <h3>Support center</h3>
+      <p>Select what you need:</p>
+      <div className="row">
+        <strong>📝 Write a complaint</strong>
+        <small>Open a complaint ticket ›</small>
+      </div>
+      <Link className="row" to="/disputes">
+        <strong>⚖️ Disputes</strong>
+        <small>Open disputes section ›</small>
+      </Link>
+      <div className="row">
+        <strong>❓ FAQ</strong>
+        <small>Read common questions ›</small>
+      </div>
+      <div className="row">
+        <strong>💬 Contact support</strong>
+        <small>Start support chat ›</small>
+      </div>
+    </Card>
+  </div>
+)
 
 export const DepositPage = () => {
   const { user, setUser } = useApp()
