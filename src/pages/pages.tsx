@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
@@ -983,6 +983,9 @@ export const ChatPage = () => {
   const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
   const [reportDetails, setReportDetails] = useState('')
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
+  const [typingUserName, setTypingUserName] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const typingTimeoutRef = useRef<number | null>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1033,9 +1036,41 @@ export const ChatPage = () => {
     })
     .sort((a, b) => a.createdAt - b.createdAt)
 
+  const groupedMessages = useMemo(
+    () => messages.map((message, index) => {
+      const prev = messages[index - 1]
+      const next = messages[index + 1]
+      const isGroupable = message.sender !== 'system'
+      const withPrev = Boolean(
+        isGroupable &&
+        prev &&
+        prev.sender === message.sender &&
+        prev.sender !== 'system' &&
+        message.createdAt - prev.createdAt <= 5 * 60_000
+      )
+      const withNext = Boolean(
+        isGroupable &&
+        next &&
+        next.sender === message.sender &&
+        next.sender !== 'system' &&
+        next.createdAt - message.createdAt <= 5 * 60_000
+      )
+
+      return {
+        message,
+        isGroupStart: !withPrev,
+        isGroupEnd: !withNext
+      }
+    }),
+    [messages]
+  )
+
   const sellerName = `seller_${order.sellerId}`
   const peerName = canModerateChat ? 'Dispute room' : sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
   const peerSubtitle = canModerateChat ? 'Buyer and seller online' : sender === 'buyer' ? 'Seller online' : 'Buyer online'
+  const peerId = sender === 'buyer' ? order.sellerId : order.buyerId
+  const peerRole = sender === 'buyer' ? 'seller' : 'buyer'
+  const typingPeerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
 
 
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
@@ -1046,6 +1081,11 @@ export const ChatPage = () => {
   ]
 
   const lastNotifiedKey = `looton_last_notified_${order.id}`
+
+  const latestIncoming = [...messages].reverse().find((message) => message.sender !== sender)
+  const hasNewIncoming = Boolean(latestIncoming && localStorage.getItem(lastNotifiedKey) !== latestIncoming.id)
+  const notifState: 'off' | 'on' | 'new' = notificationsEnabled ? (hasNewIncoming ? 'new' : 'on') : 'off'
+
 
   useEffect(() => {
     if (!canModerateChat || !activeDispute) return
@@ -1086,38 +1126,92 @@ export const ChatPage = () => {
     localStorage.setItem(lastNotifiedKey, latest.id)
   }, [messages, notificationsEnabled, sender, peerName, lastNotifiedKey])
 
+  useEffect(() => {
+    const key = `looton_typing_${order.id}`
 
-  const roomList = [
-    {
-      id: order.id,
-      title: peerName,
-      preview: `Description: ${offer?.description ?? '-'}`,
-      active: true
+    const clearTyping = () => {
+      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = window.setTimeout(() => setTypingUserName(null), 2500)
     }
-  ]
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== key || !event.newValue) return
+
+      try {
+        const payload = JSON.parse(event.newValue) as {
+          sender: ChatMessage['sender']
+          userName: string
+          ts: number
+        }
+
+        if (payload.sender === sender || Date.now() - payload.ts > 3000) return
+        setTypingUserName(payload.userName)
+        clearTyping()
+      } catch {
+        setTypingUserName(null)
+      }
+    }
+
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
+    }
+  }, [order.id, sender])
+
+  useEffect(() => {
+    if (chatBlocked || !draft.trim()) return
+    const key = `looton_typing_${order.id}`
+    const handle = window.setTimeout(() => {
+      localStorage.setItem(key, JSON.stringify({ sender, userName: user.username || typingPeerName, ts: Date.now() }))
+    }, 250)
+
+    return () => window.clearTimeout(handle)
+  }, [chatBlocked, draft, order.id, sender, user.username, typingPeerName])
+
+  const messageReadState = (message: ChatMessage, index: number): 'sent' | 'delivered' | 'read' => {
+    if (message.status) return message.status
+    if (message.readAt) return 'read'
+    if (message.deliveredAt) return 'delivered'
+
+    const hasReplyAfter = messages.slice(index + 1).some((item) => item.sender !== 'system' && item.sender !== message.sender)
+    if (hasReplyAfter) return 'read'
+    if (Date.now() - message.createdAt > 3000) return 'delivered'
+    return 'sent'
+  }
+
 
   return (
     <div className="chat-shell">
       <aside className="chat-sidebar card">
         <h2>Description</h2>
-        <div className="chat-room-list">
-          {roomList.map((room) => (
-            <button key={room.id} className={room.active ? 'chat-room active' : 'chat-room'}>
-              <span className="chat-room-title">{room.title}</span>
-              <small>{room.preview}</small>
-            </button>
-          ))}
-        </div>
+        {(offer?.description?.trim() ?? '').length > 0
+          ? <p className="chat-description">{offer?.description?.trim()}</p>
+          : <small className="chat-empty">No description provided.</small>}
       </aside>
 
       <section className="chat-main card">
         <header className="chat-header">
-          <div>
-            <strong>{peerName}</strong>
-            <small>{peerSubtitle}</small>
-          </div>
+          {canModerateChat ? (
+            <div className="chat-peer">
+              <span className="peer-avatar peer-avatar-fallback">⚖️</span>
+              <div className="peer-meta">
+                <strong className="peer-name">{peerName}</strong>
+                <small className="peer-status">{peerSubtitle}</small>
+              </div>
+            </div>
+          ) : (
+            <Link className="chat-peer" to={`/profile?view=${peerId}&role=${peerRole}&name=${peerName}`}>
+              <span className="peer-avatar peer-avatar-fallback">{peerName[0]?.toUpperCase()}<span className="online-dot" aria-hidden /></span>
+              <div className="peer-meta">
+                <strong className="peer-name">{peerName}</strong>
+                <small className="peer-status">{peerSubtitle}</small>
+              </div>
+            </Link>
+          )}
+
           <div className="chat-header-actions">
-            <button className="chip" onClick={() => {
+            <button className={`icon-btn notif ${notifState}`} aria-label="Toggle notifications" onClick={() => {
               setNotificationsEnabled((v) => {
                 const next = !v
                 if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -1126,10 +1220,14 @@ export const ChatPage = () => {
                 return next
               })
             }}>
-              {notificationsEnabled ? '🔔 Notifications on' : '🔕 Enable notifications'}
+              {notifState === 'off' && <svg className="icon" aria-hidden><use href="#i-bell-off" /></svg>}
+              {notifState === 'on' && <svg className="icon" aria-hidden><use href="#i-bell" /></svg>}
+              {notifState === 'new' && <svg className="icon" aria-hidden><use href="#i-bell-dot" /></svg>}
             </button>
             <div className="chat-menu-wrap">
-              <button className="chip" onClick={() => setMenuOpen((v) => !v)}>⋯</button>
+              <button className="icon-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Open chat menu">
+                <svg className="icon" aria-hidden><use href="#i-dots" /></svg>
+              </button>
               {menuOpen && (
                 <div className="chat-menu card">
                   <button className="chat-menu-item" onClick={() => {
@@ -1151,18 +1249,41 @@ export const ChatPage = () => {
         </header>
 
         <div className="chat-list">
-          {messages.length ? messages.map((message) => (
-            <div key={message.id} className={`chat-bubble ${message.sender}`}>
-              <small>
-                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : message.sender === 'seller' ? 'Seller' : `Arbitrator ${message.arbAlias ?? ''}`.trim()}
-                {' · '}
-                {new Date(message.createdAt).toLocaleString()}
-              </small>
-              <p>{message.text}</p>
-              {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="game-icon" />}
-            </div>
-          )) : <p>No messages yet.</p>}
+          {groupedMessages.length ? groupedMessages.map(({ message, isGroupStart, isGroupEnd }, index) => {
+            const isMine = (sender === 'buyer' && message.sender === 'buyer') || (sender === 'seller' && message.sender === 'seller') || (sender === 'arb' && message.sender === 'arb')
+            const label = message.sender === 'system' ? 'System' : message.sender === 'buyer' ? `buyer_${order.buyerId}` : message.sender === 'seller' ? `seller_${order.sellerId}` : `Arbitrator ${message.arbAlias ?? ''}`.trim()
+            const readState = messageReadState(message, index)
+            return (
+              <div key={message.id} className={`msg-row ${isMine ? 'mine' : ''} ${isGroupStart ? 'group-start' : 'group-middle'} ${isGroupEnd ? 'group-end' : ''}`}>
+                {!isMine && message.sender !== 'system' && (isGroupStart
+                  ? <span className="msg-avatar">{label[0]?.toUpperCase()}</span>
+                  : <span className="msg-avatar-spacer" aria-hidden />)}
+                <div className={`chat-bubble ${message.sender} ${isGroupStart ? 'group-start' : ''} ${isGroupEnd ? 'group-end' : ''}`}>
+                  {!isMine && message.sender !== 'system' && isGroupStart && <small className="msg-author">{label}</small>}
+                  {message.sender === 'system' && <small className="msg-author">{label}</small>}
+                  <p>{message.text}</p>
+                  {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="chat-attachment" />}
+                  <small className="msg-time">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {isMine && message.sender !== 'system' && (
+                      <span className={`msg-read msg-read-${readState}`}>
+                        {readState === 'sent' && '✓'}
+                        {readState !== 'sent' && '✓✓'}
+                      </span>
+                    )}
+                  </small>
+                </div>
+              </div>
+            )
+          }) : <div className="chat-empty-state"><svg className="icon big" aria-hidden><use href="#i-chat" /></svg><p>No messages yet</p></div>}
         </div>
+
+        {typingUserName && (
+          <div className="typing-indicator" role="status" aria-live="polite">
+            <span className="typing-dot" aria-hidden />
+            <span>{typingUserName} is typing…</span>
+          </div>
+        )}
 
 
         {reportOpen && (
@@ -1189,30 +1310,40 @@ export const ChatPage = () => {
           </div>
         )}
 
-        <div className="chat-composer">
-          <input
-            className="input"
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (!file) return
-              const reader = new FileReader()
-              reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
-              reader.readAsDataURL(file)
-            }}
-          />
-          {attachedImage && <small>Image attached</small>}
-          <textarea
-            className="input"
-            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a description...'}
-            value={draft}
-            disabled={chatBlocked}
-            onChange={(event) => setDraft(event.target.value)}
-          />
+        <div className="chat-composer chat-compose">
+          <label className="icon-btn attach-btn" title="Attach file">
+            <svg className="icon icon-paperclip" aria-hidden><use href="#i-attach" /></svg>
+            <input
+              ref={fileInputRef}
+              className="file-input"
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
+                reader.readAsDataURL(file)
+              }}
+            />
+          </label>
+
+          <div className="chat-input-wrap">
+            <textarea
+              className="input chat-input"
+              placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
+              value={draft}
+              disabled={chatBlocked}
+              onChange={(event) => setDraft(event.target.value)}
+              rows={1}
+            />
+            {attachedImage && <small className="attach-hint">Image attached</small>}
+          </div>
+
           <button
-            className="btn"
+            className="icon-btn send-btn"
             disabled={chatBlocked}
+            aria-label="Send message"
             onClick={() => {
               sendOrderMessage(
                 order.id,
@@ -1223,31 +1354,55 @@ export const ChatPage = () => {
               )
               setDraft('')
               setAttachedImage(undefined)
+              if (fileInputRef.current) fileInputRef.current.value = ''
             }}
           >
-            ➤
+            <svg className="icon icon-send" aria-hidden><use href="#i-send" /></svg>
           </button>
         </div>
       </section>
 
-      <aside className="chat-meta card">
-        <h3>Deal details</h3>
-        <p>Offer: {offer?.title ?? order.offerId}</p>
-        <p>Description: {offer?.description ?? '-'}</p>
-        <p>Amount: {order.amountTon} TON</p>
-        <p>Status: {order.status}</p>
+      <aside className="chat-meta card deal-card">
+        <h3 className="deal-title">
+          <svg className="icon" aria-hidden><use href="#i-lock" /></svg>
+          Secure deal
+        </h3>
+
+        <div className="deal-row">
+          <span className="deal-label">Offer</span>
+          <span className="deal-value">{offer?.title ?? order.offerId}</span>
+        </div>
+
+        <div className="deal-row">
+          <span className="deal-label">Description</span>
+          <span className="deal-value">{offer?.description?.trim() || '—'}</span>
+        </div>
+
+        <div className="deal-row">
+          <span className="deal-label">Amount</span>
+          <span className="deal-value amount">{order.amountTon} TON</span>
+        </div>
+
+        <div className="deal-row">
+          <span className="deal-label">Status</span>
+          <span className={isOrderPaid ? 'badge-paid' : 'badge-pending'}>
+            <svg className="icon" aria-hidden><use href="#i-check" /></svg>
+            {order.status.replace('_', ' ')}
+          </span>
+        </div>
+
         {canModerateChat && (
           <>
-            <p>Game: {games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'}</p>
-            <p>Category: {offer?.category ?? '-'}</p>
-            <p>Dispute reason: {activeDispute?.reasonCode ?? '-'}</p>
-            <p>Dispute details: {activeDispute?.message ?? '-'}</p>
+            <div className="deal-row"><span className="deal-label">Game</span><span className="deal-value">{games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'}</span></div>
+            <div className="deal-row"><span className="deal-label">Category</span><span className="deal-value">{offer?.category ?? '-'}</span></div>
+            <div className="deal-row"><span className="deal-label">Dispute reason</span><span className="deal-value">{activeDispute?.reasonCode ?? '-'}</span></div>
           </>
         )}
+
         {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
         {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
-        <p>Escrow: active until order completion.</p>
-        <p>Never transfer funds outside the platform.</p>
+
+        <p className="deal-warning">Never transfer funds outside the platform</p>
       </aside>
     </div>
   )
@@ -1509,6 +1664,10 @@ export const DisputeDetailsPage = () => {
 export const ProfilePage = () => {
 
   const { user, setUser } = useApp()
+  const [searchParams] = useSearchParams()
+  const viewedId = searchParams.get('view')
+  const viewedName = searchParams.get('name')
+  const viewedRole = searchParams.get('role')
   const roles: Role[] = ['user', 'seller', 'trainee_arb', 'arb', 'senior_arb', 'admin']
   const demoAccounts = [
     {
@@ -1597,6 +1756,14 @@ export const ProfilePage = () => {
 
   return (
     <div className="stack">
+      {viewedId && viewedName && (
+        <Card>
+          <h3>Viewed profile</h3>
+          <p>@{viewedName}</p>
+          <p>User ID: {viewedId}</p>
+          <p>Role: {viewedRole ?? 'user'}</p>
+        </Card>
+      )}
       <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
       <Card>

@@ -122,4 +122,7 @@ export interface ChatMessage {
   createdAt: number
   arbAlias?: string
   imageUrl?: string
+  status?: 'sent' | 'delivered' | 'read'
+  deliveredAt?: number
+  readAt?: number
 }
