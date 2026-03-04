@@ -11,6 +11,9 @@ export const mockUser: User = {
   dealsCount: 124,
   depositTon: 120,
   depositStatus: 'active',
+  arbWarnings: 0,
+  arbDeclinesCount: 0,
+  arbFreeDeclineUsed: false,
   createdAt: Date.now() - 1000 * 60 * 60 * 24 * 60
 }
 
