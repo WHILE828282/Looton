@@ -14,6 +14,7 @@ import {
   OrderDetailsPage,
   OrdersPage,
   ProfilePage,
+  ProfileSupportPage,
   RoleGate,
   SellNewPage,
   SellPage,
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/checkout/:offerId" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/chats" element={<MessagesPage />} />
         <Route path="/order/:orderId" element={<OrderDetailsPage />} />
         <Route path="/order/:orderId/chat" element={<ChatPage />} />
         <Route path="/sell" element={<SellPage />} />
@@ -41,6 +43,7 @@ export default function App() {
         <Route path="/disputes" element={<DisputesPage />} />
         <Route path="/dispute/:disputeId" element={<DisputeDetailsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/support" element={<ProfileSupportPage />} />
         <Route path="/deposit" element={<DepositPage />} />
         <Route path="/staff" element={<RoleGate><StaffPage /></RoleGate>} />
         <Route path="/staff/queue" element={<RoleGate><StaffQueuePage /></RoleGate>} />

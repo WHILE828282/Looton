@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
@@ -82,6 +82,14 @@ const formatLeftMinutes = (confirmUntil: number) => {
 }
 
 
+
+const getStaffAssigneeKey = (id: number, username: string) => `${id}:${username}`
+
+const isAssignedToStaff = (assignedTo: string | undefined, userId: number, username: string) => {
+  if (!assignedTo) return false
+  return assignedTo === String(userId) || assignedTo === getStaffAssigneeKey(userId, username)
+}
+
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
 const iconCandidates = (src: string) => {
@@ -140,7 +148,12 @@ export const HomePage = () => {
   const nav = useNavigate()
   const [query, setQuery] = useState('')
 
-  const trending = offers.filter((offer) => offer.sellerId !== user.id).slice(0, 6)
+  const trendingSections = [
+    { id: 'accounts', title: 'Popular Accounts', to: '/game/mlbb/offers/accounts', iconUrl: gameIconSrc('mlbb') },
+    { id: 'currency', title: 'Popular Currencies', to: '/game/mlbb/offers/currency', iconUrl: gameIconSrc('mlbb') },
+    { id: 'items', title: 'Popular Items', to: '/game/cs2/offers/items', iconUrl: gameIconSrc('cs2') },
+    { id: 'services', title: 'Popular Boosting', to: '/game/gta5/offers/services', iconUrl: gameIconSrc('gta5') }
+  ]
   const trustStats = [
     { label: 'Deals 24h', value: '1,200+' },
     { label: 'Verified sellers', value: '340+' },
@@ -235,16 +248,12 @@ export const HomePage = () => {
       <Card>
         <h3>Trending 🔥</h3>
         <div className="trending-scroll">
-          {trending.map((offer) => {
-            const iconSrc = gameIconSrc(offer.gameId)
-            const game = games.find((g) => g.id === offer.gameId)
-            return (
-              <Link key={offer.id} className="trending-item" to={`/offer/${offer.id}`}>
-                <GameIcon src={iconSrc} alt={game?.title ?? 'Game'} />
-                <span>{offer.title}</span>
-              </Link>
-            )
-          })}
+          {trendingSections.map((section) => (
+            <Link key={section.id} className="trending-item" to={section.to}>
+              <GameIcon src={section.iconUrl} alt={section.title} />
+              <span>{section.title}</span>
+            </Link>
+          ))}
         </div>
       </Card>
 
@@ -316,8 +325,13 @@ export const HomePage = () => {
       </Card>
 
       <Card>
-        <h3>New offers</h3>
-        {offers.slice(0, 6).map((o) => <OfferRow key={o.id} offer={o} />)}
+        <h3>Safe deal checklist</h3>
+        <ul>
+          <li>Check seller rating and deposit before purchase.</li>
+          <li>Keep all proofs in chat, including screenshots and delivery data.</li>
+          <li>Use dispute report in chat if delivery is invalid or missing.</li>
+          <li>Never transfer funds outside the platform escrow flow.</li>
+        </ul>
       </Card>
     </div>
   )
@@ -533,8 +547,9 @@ export const OrderDetailsPage = () => {
 
 export const ChatPage = () => {
   const { orderId = '' } = useParams()
-  const { user, orders, offers, chatMessages, sendOrderMessage, openDispute } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute, joinDisputeChat } = useApp()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState('')
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -542,12 +557,37 @@ export const ChatPage = () => {
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
   const [reportDetails, setReportDetails] = useState('')
+  const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
 
   const offer = offers.find((item) => item.id === order.offerId)
-  const sender: ChatMessage['sender'] = user.id === order.sellerId ? 'seller' : 'buyer'
+  const requestedDisputeId = searchParams.get('dispute') ?? ''
+  const activeDispute = disputes.find((item) => {
+    if (item.orderId !== order.id) return false
+    if (!requestedDisputeId) return ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(item.status)
+    return item.id === requestedDisputeId
+  })
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
+  const canModerateChat = isArbitrator && Boolean(activeDispute && isAssignedToStaff(activeDispute.assignedTo, user.id, user.username))
+  const isParticipant = user.id === order.buyerId || user.id === order.sellerId
+  const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
+  const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+
+  if (!canAccessChat) {
+    return (
+      <div className="stack">
+        <Card>
+          <h3>Chat access restricted</h3>
+          <p>This chat is available only to the assigned arbitrator (for staff) or to buyer/seller (for regular users).</p>
+          <Link className="btn" to={isArbitrator ? '/staff/queue' : '/orders'}>Go back</Link>
+        </Card>
+      </div>
+    )
+  }
+
   const paidStatuses: OrderStatus[] = [
     'paid',
     'delivering',
@@ -569,8 +609,8 @@ export const ChatPage = () => {
     .sort((a, b) => a.createdAt - b.createdAt)
 
   const sellerName = `seller_${order.sellerId}`
-  const peerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
-  const peerSubtitle = sender === 'buyer' ? 'Seller online' : 'Buyer online'
+  const peerName = canModerateChat ? 'Dispute room' : sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
+  const peerSubtitle = canModerateChat ? 'Buyer and seller online' : sender === 'buyer' ? 'Seller online' : 'Buyer online'
 
 
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
@@ -582,7 +622,11 @@ export const ChatPage = () => {
 
   const lastNotifiedKey = `looton_last_notified_${order.id}`
 
-
+  useEffect(() => {
+    if (!canModerateChat || !activeDispute) return
+    const alias = activeDispute.arbitratorAlias || `arb_${user.id}`
+    joinDisputeChat(activeDispute.id, alias)
+  }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
   useEffect(() => {
     const saved = localStorage.getItem(`looton_notifications_${order.id}`)
@@ -622,27 +666,15 @@ export const ChatPage = () => {
     {
       id: order.id,
       title: peerName,
-      preview: (messages.length ? messages[messages.length - 1].text : 'No messages yet'),
+      preview: `Description: ${offer?.description ?? '-'}`,
       active: true
-    },
-    {
-      id: 'demo-1',
-      title: 'support_looton',
-      preview: 'Official platform notifications',
-      active: false
-    },
-    {
-      id: 'demo-2',
-      title: 'fast_seller',
-      preview: 'Sent order details',
-      active: false
     }
   ]
 
   return (
     <div className="chat-shell">
       <aside className="chat-sidebar card">
-        <h2>Messages</h2>
+        <h2>Description</h2>
         <div className="chat-room-list">
           {roomList.map((room) => (
             <button key={room.id} className={room.active ? 'chat-room active' : 'chat-room'}>
@@ -681,12 +713,12 @@ export const ChatPage = () => {
                   }}>
                     {chatBlocked ? 'Unblock user' : 'Block user'}
                   </button>
-                  <button className="chat-menu-item" onClick={() => {
+                  {!canModerateChat && <button className="chat-menu-item" onClick={() => {
                     setReportOpen(true)
                     setMenuOpen(false)
                   }}>
                     Report user
-                  </button>
+                  </button>}
                 </div>
               )}
             </div>
@@ -697,11 +729,12 @@ export const ChatPage = () => {
           {messages.length ? messages.map((message) => (
             <div key={message.id} className={`chat-bubble ${message.sender}`}>
               <small>
-                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : 'Seller'}
+                {message.sender === 'system' ? 'System' : message.sender === 'buyer' ? 'Buyer' : message.sender === 'seller' ? 'Seller' : `Arbitrator ${message.arbAlias ?? ''}`.trim()}
                 {' · '}
                 {new Date(message.createdAt).toLocaleString()}
               </small>
               <p>{message.text}</p>
+              {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="game-icon" />}
             </div>
           )) : <p>No messages yet.</p>}
         </div>
@@ -721,7 +754,7 @@ export const ChatPage = () => {
               <button className="chip active" onClick={() => {
                 if (!window.confirm(DISPUTE_POLICY)) return
                 const details = reportDetails.trim() || `Reason: ${reportReason}`
-                const dispute = openDispute(order.id, details, sender, reportReason)
+                const dispute = openDispute(order.id, details, sender === 'seller' ? 'seller' : 'buyer', reportReason)
                 setReportOpen(false)
                 setReportDetails('')
                 nav(`/dispute/${dispute.id}`)
@@ -732,9 +765,22 @@ export const ChatPage = () => {
         )}
 
         <div className="chat-composer">
+          <input
+            className="input"
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
+              reader.readAsDataURL(file)
+            }}
+          />
+          {attachedImage && <small>Image attached</small>}
           <textarea
             className="input"
-            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : 'Write a message...'}
+            placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a description...'}
             value={draft}
             disabled={chatBlocked}
             onChange={(event) => setDraft(event.target.value)}
@@ -743,8 +789,15 @@ export const ChatPage = () => {
             className="btn"
             disabled={chatBlocked}
             onClick={() => {
-              sendOrderMessage(order.id, sender, draft)
+              sendOrderMessage(
+                order.id,
+                sender,
+                draft,
+                sender === 'arb' ? (activeDispute?.arbitratorAlias || `arb_${user.id}`) : undefined,
+                attachedImage
+              )
               setDraft('')
+              setAttachedImage(undefined)
             }}
           >
             ➤
@@ -755,8 +808,17 @@ export const ChatPage = () => {
       <aside className="chat-meta card">
         <h3>Deal details</h3>
         <p>Offer: {offer?.title ?? order.offerId}</p>
+        <p>Description: {offer?.description ?? '-'}</p>
         <p>Amount: {order.amountTon} TON</p>
         <p>Status: {order.status}</p>
+        {canModerateChat && (
+          <>
+            <p>Game: {games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'}</p>
+            <p>Category: {offer?.category ?? '-'}</p>
+            <p>Dispute reason: {activeDispute?.reasonCode ?? '-'}</p>
+            <p>Dispute details: {activeDispute?.message ?? '-'}</p>
+          </>
+        )}
         {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
         {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
         <p>Escrow: active until order completion.</p>
@@ -768,24 +830,43 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, chatMessages } = useApp()
+  const { user, orders, offers, disputes, chatMessages } = useApp()
+  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
 
-  const relatedOrders = orders
-    .filter((order) => order.buyerId === user.id || order.sellerId === user.id)
+  const accessibleOrders = orders.filter((order) => {
+    if (!isArbitrator) {
+      return order.buyerId === user.id || order.sellerId === user.id
+    }
+
+    return disputes.some((dispute) =>
+      dispute.orderId === order.id &&
+      isAssignedToStaff(dispute.assignedTo, user.id, user.username) &&
+      ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(dispute.status)
+    )
+  })
+
+  const relatedOrders = accessibleOrders
     .map((order) => {
       const offer = offers.find((item) => item.id === order.offerId)
+      const orderDispute = disputes.find((dispute) =>
+        dispute.orderId === order.id &&
+        (isArbitrator ? isAssignedToStaff(dispute.assignedTo, user.id, user.username) : (order.buyerId === user.id || order.sellerId === user.id))
+      )
       const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
       const orderMessages = chatMessages
         .filter((message) => message.orderId === order.id)
         .sort((a, b) => b.createdAt - a.createdAt)
       const latestMessage = orderMessages[0]
+      const chatLink = orderDispute ? `/order/${order.id}/chat?dispute=${orderDispute.id}` : `/order/${order.id}/chat`
 
       return {
         order,
         title: offer?.title ?? order.offerId,
-        peer: `User ${peerId}`,
+        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `User ${peerId}`,
         preview: latestMessage?.text ?? 'No messages yet',
-        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—'
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—',
+        chatLink
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
@@ -794,16 +875,17 @@ export const MessagesPage = () => {
     <div className="stack">
       <Card>
         <h3>Messages</h3>
-        <p>All chat threads with buyers and sellers.</p>
+        <p>{isArbitrator ? 'Assigned dispute chats. Open queue if list is empty.' : 'All chat threads with buyers and sellers.'}</p>
       </Card>
       <Card>
+        {isArbitrator && <Link className="btn secondary" to="/staff/queue">Open arbitrator queue</Link>}
         {relatedOrders.length ? relatedOrders.map((item) => (
-          <Link key={item.order.id} className="row" to={`/order/${item.order.id}/chat`}>
+          <Link key={item.order.id} className="row" to={item.chatLink}>
             <strong>{item.title}</strong>
             <small>{item.peer} · {item.time}</small>
             <span>{item.preview}</span>
           </Link>
-        )) : <p>No conversations yet</p>}
+        )) : <p>{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet'}</p>}
       </Card>
     </div>
   )
@@ -873,7 +955,7 @@ export const SellNewPage = () => {
 }
 
 export const DisputesPage = () => {
-  const { disputes, orders, user, assignRandomCase } = useApp()
+  const { disputes, orders, offers, user, assignRandomCase } = useApp()
   const [tab, setTab] = useState<'active' | 'closed' | 'all'>('active')
   const [searching, setSearching] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -881,6 +963,7 @@ export const DisputesPage = () => {
   const nav = useNavigate()
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
 
   useEffect(() => {
     if (!searching) return
@@ -888,22 +971,24 @@ export const DisputesPage = () => {
     return () => clearInterval(timer)
   }, [searching])
 
+  const matchesTab = (status: Dispute['status']) => {
+    if (tab === 'all') return true
+    const isClosed = ['final_decided', 'closed'].includes(status)
+    return tab === 'closed' ? isClosed : !isClosed
+  }
+
   const mine = disputes.filter((d) => {
     const order = orders.find((o) => o.id === d.orderId)
-    return order ? order.buyerId === user.id || order.sellerId === user.id : true
+    if (!order) return false
+    return (order.buyerId === user.id || order.sellerId === user.id) && matchesTab(d.status)
   })
 
   const arbPool = disputes.filter((d) => {
-    if (tab === 'all') return true
-    const isClosed = ['final_decided', 'closed'].includes(d.status)
-    return tab === 'closed' ? isClosed : !isClosed
+    const assignedToMe = isAssignedToStaff(d.assignedTo, user.id, user.username)
+    return assignedToMe && matchesTab(d.status)
   })
 
-  const userPool = mine.filter((d) => {
-    if (tab === 'all') return true
-    const isClosed = ['final_decided', 'closed'].includes(d.status)
-    return tab === 'closed' ? isClosed : !isClosed
-  })
+  const userPool = mine
 
   const visible = isArbitrator ? arbPool : userPool
 
@@ -918,7 +1003,7 @@ export const DisputesPage = () => {
       {isArbitrator && (
         <Card>
           <h3>Arbitrator queue</h3>
-          <p>Current disputes · Resolved disputes · All disputes</p>
+          <p>Your assigned disputes only. Use search to take a new case.</p>
           <div className="chips">
             {!searching && <button className="chip active" onClick={() => {
               setSearching(true)
@@ -926,7 +1011,7 @@ export const DisputesPage = () => {
               setSearchResult('')
               const delay = 3000 + Math.floor(Math.random() * 4000)
               setTimeout(() => {
-                const found = assignRandomCase(String(user.id))
+                const found = assignRandomCase(staffKey)
                 if (found) {
                   setSearchResult(`✅ Dispute found: ${found.id}`)
                   nav(`/staff/case/${found.id}`)
@@ -947,7 +1032,16 @@ export const DisputesPage = () => {
       )}
 
       <Card>
-        {visible.length ? visible.map((d) => <Link className="row" to={`/dispute/${d.id}`} key={d.id}><strong>{d.reasonCode}</strong><small>{d.status}</small></Link>) : <p>No disputes in this view.</p>}
+        {visible.length ? visible.map((d) => {
+          const order = orders.find((item) => item.id === d.orderId)
+          const offer = offers.find((item) => item.id === order?.offerId)
+          return (
+            <Link className="row" to={`/dispute/${d.id}`} key={d.id}>
+              <strong>{offer?.title ?? `Order #${d.orderId.slice(-6)}`}</strong>
+              <small>{d.reasonCode} · {d.status}</small>
+            </Link>
+          )
+        }) : <p>No disputes in this view.</p>}
       </Card>
     </div>
   )
@@ -1010,13 +1104,59 @@ export const ProfilePage = () => {
       dealsCount: 67,
       depositTon: 80,
       depositStatus: 'active' as const,
+      arbWarnings: 0,
+      arbDeclinesCount: 0,
+      arbFreeDeclineUsed: false,
+      createdAt: user.createdAt
+    },
+    {
+      id: 3001,
+      username: 'arb_alpha',
+      role: 'arb' as Role,
+      buyerRating: 4.9,
+      sellerRating: 4.9,
+      dealsCount: 700,
+      depositTon: 150,
+      depositStatus: 'active' as const,
+      arbWarnings: 0,
+      arbDeclinesCount: 0,
+      arbFreeDeclineUsed: false,
+      createdAt: user.createdAt
+    },
+    {
+      id: 3002,
+      username: 'arb_beta',
+      role: 'arb' as Role,
+      buyerRating: 4.9,
+      sellerRating: 4.9,
+      dealsCount: 710,
+      depositTon: 155,
+      depositStatus: 'active' as const,
+      arbWarnings: 0,
+      arbDeclinesCount: 0,
+      arbFreeDeclineUsed: false,
       createdAt: user.createdAt
     }
   ]
 
+  const settingsPrimary = [
+    { icon: '🌐', label: 'Language', value: 'English' },
+    { icon: '💲', label: 'Wallet currency', value: 'USD' },
+    { icon: '🕒', label: 'Timezone', value: 'UTC+3' },
+    { icon: '🌓', label: 'Theme', value: 'Auto' },
+    { icon: '🛠️', label: 'Exchange settings', value: 'Open' }
+  ]
+
+  const legalLinks = [
+    'AML Policy',
+    'Privacy Policy',
+    'Terms of Use',
+    'Website Usage Rules'
+  ]
+
   return (
     <div className="stack">
-      <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p></Card>
+      <Card><p>@{user.username}</p><p>Role: {user.role}</p><p>Buyer {user.buyerRating} · Seller {user.sellerRating}</p><p>Arb warnings: {user.arbWarnings ?? 0}</p></Card>
       <Card><p>Deposit {user.depositTon} TON ({user.depositStatus})</p><Link to="/deposit">Manage deposit</Link></Card>
       <Card>
         <p>Switch demo account</p>
@@ -1033,9 +1173,61 @@ export const ProfilePage = () => {
           {roles.map((r) => <option key={r}>{r}</option>)}
         </select>
       </Card>
+
+      <Card>
+        <h3>Settings</h3>
+        {settingsPrimary.map((item) => (
+          <div className="row" key={item.label}>
+            <strong>{item.icon} {item.label}</strong>
+            <small>{item.value} ›</small>
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        <h4>Support</h4>
+        <Link className="row" to="/profile/support">
+          <strong>🛟 Open support center</strong>
+          <small>Choose complaint, disputes, FAQ and more ›</small>
+        </Link>
+      </Card>
+
+      <Card>
+        {legalLinks.map((item) => (
+          <div className="row" key={item}>
+            <strong>{item}</strong>
+            <small>›</small>
+          </div>
+        ))}
+      </Card>
     </div>
   )
 }
+
+export const ProfileSupportPage = () => (
+  <div className="stack">
+    <Card>
+      <h3>Support center</h3>
+      <p>Select what you need:</p>
+      <div className="row">
+        <strong>📝 Write a complaint</strong>
+        <small>Open a complaint ticket ›</small>
+      </div>
+      <Link className="row" to="/disputes">
+        <strong>⚖️ Disputes</strong>
+        <small>Open disputes section ›</small>
+      </Link>
+      <div className="row">
+        <strong>❓ FAQ</strong>
+        <small>Read common questions ›</small>
+      </div>
+      <div className="row">
+        <strong>💬 Contact support</strong>
+        <small>Start support chat ›</small>
+      </div>
+    </Card>
+  </div>
+)
 
 export const DepositPage = () => {
   const { user, setUser } = useApp()
@@ -1066,13 +1258,22 @@ export const StaffQueuePage = () => {
   const { assignRandomCase, user } = useApp()
   const nav = useNavigate()
   const [message, setMessage] = useState('')
+  const staffKey = getStaffAssigneeKey(user.id, user.username)
+  const now = Date.now()
+  const cooldownMinLeft = Math.max(0, Math.ceil(((user.arbDeclineCooldownUntil ?? 0) - now) / 60000))
+  const suspendedDaysLeft = Math.max(0, Math.ceil(((user.arbSuspendedUntil ?? 0) - now) / (24 * 60 * 60000)))
+  const cannotTake = (user.arbSuspendedUntil ?? 0) > now || (user.arbDeclineCooldownUntil ?? 0) > now
 
   return (
     <div className="stack">
       <button
         className="btn"
         onClick={() => {
-          const d = assignRandomCase(String(user.id))
+          if (cannotTake) {
+            setMessage((user.arbSuspendedUntil ?? 0) > now ? `Suspended for ${suspendedDaysLeft} day(s).` : `Cooldown active: ${cooldownMinLeft} min left.`)
+            return
+          }
+          const d = assignRandomCase(staffKey)
           if (d) {
             nav(`/staff/case/${d.id}`)
             return
@@ -1082,6 +1283,7 @@ export const StaffQueuePage = () => {
       >
         Assign me next case
       </button>
+      {cannotTake && <Card><p>{(user.arbSuspendedUntil ?? 0) > now ? `Suspended for ${suspendedDaysLeft} day(s).` : `Cooldown active: ${cooldownMinLeft} min left.`}</p></Card>}
       {message && <Card><p>{message}</p></Card>}
     </div>
   )
@@ -1089,30 +1291,79 @@ export const StaffQueuePage = () => {
 
 export const StaffCasePage = () => {
   const { disputeId = '' } = useParams()
-  const { disputes, decideDispute, user } = useApp()
+  const { disputes, orders, offers, decideDispute, declineAssignedCase, user } = useApp()
   const nav = useNavigate()
   const d = disputes.find((x) => x.id === disputeId)
   const [winner, setWinner] = useState<'buyer' | 'seller'>('buyer')
   const [text, setText] = useState('')
+  const [declineReasonType, setDeclineReasonType] = useState<'unjustified' | 'lack_expertise'>('unjustified')
+  const [declineText, setDeclineText] = useState('')
 
   if (!d) return <p>Case not found</p>
+
+  const order = orders.find((item) => item.id === d.orderId)
+  const offer = offers.find((item) => item.id === order?.offerId)
+  const gameTitle = games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'
+  const canReviewCase = isAssignedToStaff(d.assignedTo, user.id, user.username)
+  const decisionLocked = ['trainee_decided', 'arb_decided', 'final_decided', 'closed'].includes(d.status)
+
+  if (!canReviewCase) {
+    return (
+      <div className="stack">
+        <Card>
+          <h3>Case access restricted</h3>
+          <p>This dispute is not assigned to you.</p>
+          <Link className="btn" to="/staff/queue">Back to queue</Link>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="stack">
       <Card>
         <h3>Anonymous case {d.id}</h3>
         <p>Order reference: #{d.orderId.slice(-6)}</p>
-        <p>Description: {d.message}</p>
+        <p>Game: {gameTitle}</p>
+        <p>Category: {offer?.category ?? '-'}</p>
+        <p>What was bought: {offer?.title ?? order?.offerId ?? '-'}</p>
+        <p>Description: {offer?.description ?? '-'}</p>
+        <p>Claim details: {d.message}</p>
         {d.evidence.map((e, i) => <p key={i}>{e.type}: {e.url}</p>)}
       </Card>
       <div className="chips">
-        <button className="chip" onClick={() => setWinner('buyer')}>Buyer wins</button>
-        <button className="chip" onClick={() => setWinner('seller')}>Seller wins</button>
+        <button className={`chip ${winner === 'buyer' ? 'active' : ''}`} onClick={() => setWinner('buyer')}>Buyer wins</button>
+        <button className={`chip ${winner === 'seller' ? 'active' : ''}`} onClick={() => setWinner('seller')}>Seller wins</button>
+        <Link className="chip" to={`/order/${d.orderId}/chat?dispute=${d.id}`}>Join dispute chat</Link>
       </div>
-      <textarea className="input" placeholder="Decision text" value={text} onChange={(e) => setText(e.target.value)} />
-      <button className="btn" onClick={() => { decideDispute(d.id, winner, text || 'Decision submitted', String(user.id)); nav('/staff') }}>
+      <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} disabled={decisionLocked} />
+      {!['senior_arb', 'admin'].includes(user.role) && !decisionLocked && (
+        <Card>
+          <h4>Decline assigned appeal</h4>
+          <select className="input" value={declineReasonType} onChange={(event) => setDeclineReasonType(event.target.value as 'unjustified' | 'lack_expertise')}>
+            <option value="unjustified">Unjustified decline</option>
+            <option value="lack_expertise">I do not know how to solve this case</option>
+          </select>
+          <textarea className="input" placeholder="Explain in detail why you decline this case" value={declineText} onChange={(event) => setDeclineText(event.target.value)} />
+          <button className="btn secondary" onClick={() => {
+            const result = declineAssignedCase(d.id, declineText, declineReasonType)
+            window.alert(result.message)
+            if (result.ok) nav('/staff/queue')
+          }}>Decline case</button>
+        </Card>
+      )}
+      <button className="btn" disabled={decisionLocked} onClick={() => {
+        const decisionText = text.trim()
+        if (decisionText.length < 30) {
+          window.alert('Please provide a detailed explanation (at least 30 characters).')
+          return
+        }
+        decideDispute(d.id, winner, decisionText, String(user.id))
+        nav('/staff')
+      }}>
         Submit decision
       </button>
+      {decisionLocked && <p>Decision already submitted for this case.</p>}
     </div>
   )
 }
