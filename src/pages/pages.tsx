@@ -1201,6 +1201,9 @@ export const ChatPage = () => {
   const isParticipant = user.id === order.buyerId || user.id === order.sellerId
   const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
   const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+  const offerTitle = offer?.title ?? 'Custom order'
+  const offerDescription = offer?.description?.trim() || 'Contact seller before payment for fast processing.'
+  const orderStatusLabel = order.status.replace('_', ' ')
 
   if (!canAccessChat) {
     return (
@@ -1264,7 +1267,7 @@ export const ChatPage = () => {
     <div className="order-chat-mobile">
       <header className="product-header">
         <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back">←</button>
-        <h2>{offer?.title ?? 'Order chat'}</h2>
+        <h2>{offerTitle}</h2>
         <div className="product-header-actions"><button className="icon-btn" aria-label="Menu">☰</button></div>
       </header>
 
@@ -1275,13 +1278,14 @@ export const ChatPage = () => {
         <div><span>Category</span><strong>{offer?.category ?? 'General'}</strong></div>
       </section>
 
-      <section className="product-block">
-        <h3>Seller description</h3>
-        <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offer?.description?.trim() || 'Contact seller before payment for fast processing.'}</p>
-        <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
-      </section>
+      <div className="order-chat-layout">
+        <section className="product-block">
+          <h3>Seller description</h3>
+          <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offerDescription}</p>
+          <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
+        </section>
 
-      <section className="seller-chat-screen">
+        <section className="seller-chat-screen">
         <div className="seller-chat-top">
           <div className="seller-chat-identity">
             <span className="seller-avatar">{`S`}</span>
@@ -1384,7 +1388,19 @@ export const ChatPage = () => {
             <svg className="icon icon-send" aria-hidden><use href="#i-send" /></svg>
           </button>
         </div>
-      </section>
+        </section>
+
+        <aside className="product-block deal-summary">
+          <h3>Secure deal</h3>
+          <ul className="deal-summary-list">
+            <li><span>Offer</span><strong>{offerTitle}</strong></li>
+            <li><span>Description</span><strong>{offerDescription}</strong></li>
+            <li><span>Amount</span><strong>{order.amountTon} TON</strong></li>
+            <li><span>Status</span><strong className="deal-status-text">{orderStatusLabel}</strong></li>
+          </ul>
+          <p className="deal-summary-note">Never transfer funds outside the platform.</p>
+        </aside>
+      </div>
     </div>
   )
 }
