@@ -153,6 +153,7 @@ const isTabActive = (pathname: string, to: string, isArbitrator: boolean) => {
 export const Layout = () => {
   const location = useLocation()
   const { user } = useApp()
+  const isOfferScreen = location.pathname.startsWith('/offer/')
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const tabs = isArbitrator ? arbTabs : userTabs
@@ -168,40 +169,44 @@ export const Layout = () => {
   return (
     <div className="app">
       <SvgSprite />
-      <header className="topbar">
-        <div>
-          <p className="topbar-eyebrow">secure gaming marketplace</p>
-          <h1 className="topbar-title">Looton Market</h1>
-        </div>
-        <div className="topbar-actions">
-          <Link className="topbar-badge" to="/chats">Chat</Link>
-          <span className="topbar-badge">Balance: {user.depositTon.toFixed(2)} TON</span>
-        </div>
-      </header>
+      {!isOfferScreen && (
+        <header className="topbar">
+          <div>
+            <p className="topbar-eyebrow">secure gaming marketplace</p>
+            <h1 className="topbar-title">Looton Market</h1>
+          </div>
+          <div className="topbar-actions">
+            <Link className="topbar-badge" to="/chats">Chat</Link>
+            <span className="topbar-badge">Balance: {user.depositTon.toFixed(2)} TON</span>
+          </div>
+        </header>
+      )}
 
       <main className="main">
         <Outlet />
       </main>
 
-      <nav className={isArbitrator ? 'bottom-nav' : 'bottom-nav portals'}>
-        {tabs.map((tab) => {
-          const active = isTabActive(location.pathname, tab.to, isArbitrator)
-          return (
-            <Link key={tab.to} className={active ? 'tab active' : 'tab'} to={tab.to}>
-              <span className="tab-icon" aria-hidden><NavIcon name={tab.icon} /></span>
-              <span>{tab.label}</span>
-            </Link>
-          )
-        })}
+      {!isOfferScreen && (
+        <nav className={isArbitrator ? 'bottom-nav' : 'bottom-nav portals'}>
+          {tabs.map((tab) => {
+            const active = isTabActive(location.pathname, tab.to, isArbitrator)
+            return (
+              <Link key={tab.to} className={active ? 'tab active' : 'tab'} to={tab.to}>
+                <span className="tab-icon" aria-hidden><NavIcon name={tab.icon} /></span>
+                <span>{tab.label}</span>
+              </Link>
+            )
+          })}
 
-        {!isArbitrator && (
-          <Link className="tg-avatar-btn" to="/profile" aria-label="Open profile">
-            {tgAvatarUrl
-              ? <img className="tg-avatar" src={tgAvatarUrl} alt="Telegram avatar" />
-              : <span className="tg-avatar tg-avatar-fallback">{avatarLetter}</span>}
-          </Link>
-        )}
-      </nav>
+          {!isArbitrator && (
+            <Link className="tg-avatar-btn" to="/profile" aria-label="Open profile">
+              {tgAvatarUrl
+                ? <img className="tg-avatar" src={tgAvatarUrl} alt="Telegram avatar" />
+                : <span className="tg-avatar tg-avatar-fallback">{avatarLetter}</span>}
+            </Link>
+          )}
+        </nav>
+      )}
     </div>
   )
 }
