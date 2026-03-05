@@ -507,6 +507,11 @@ textarea.input{
 
 /* Chat shell sizing */
 .chat-shell{ display: grid; gap: 12px; align-items: stretch; }
+.chat-shell--wide{
+  width: min(1280px, calc(100vw - 32px));
+  margin: 0 auto;
+}
+
 .chat-sidebar,
 .chat-main,
 .chat-meta{ min-height: 520px; }
@@ -540,7 +545,9 @@ textarea.input{
 
 .deal-card{
   padding: 14px;
+  border: 1px solid rgba(255,255,255,.09);
 }
+
 
 .deal-lock-wrap{
   display: grid;
@@ -562,14 +569,19 @@ textarea.input{
 .deal-row{
   display: grid;
   gap: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
 }
+.deal-row:last-of-type{ border-bottom: 0; }
 
 .deal-label{
+  margin: 0;
   color: var(--text-secondary);
   font-size: 12px;
 }
 
 .deal-value{
+  margin: 0;
   color: var(--text-primary);
   line-height: 1.35;
   word-break: break-word;
@@ -595,6 +607,7 @@ textarea.input{
 
 @media (max-width: 1099px){
   .chat-shell{ grid-template-columns: 1fr; }
+  .chat-shell--wide{ width: 100%; }
   .chat-sidebar,.chat-main,.chat-meta{ min-height: auto; }
 }
 
@@ -1139,4 +1152,39 @@ textarea.input{
   .product-header h2{ font-size: 23px; }
   .product-meta-grid strong{ font-size: 17px; }
   .chat-message-text{ font-size: 14px; }
+}
+
+.order-chat-mobile{
+  width: min(430px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+
+.order-chat-mobile .product-header{
+  top: 0;
+}
+
+.order-chat-mobile .seller-chat-screen{
+  width: 100%;
+  height: min(560px, 65vh);
+}
+
+.order-chat-mobile .chat-messages{
+  padding-bottom: 86px;
+}
+
+.order-chat-mobile .chat-input-bar{
+  grid-template-columns: 44px 1fr 44px;
+}
+
+.order-chat-mobile .chat-input{
+  height: 44px;
+  min-height: 44px;
+}
+
+@media (min-width: 700px){
+  .order-chat-mobile{
+    width: min(460px, calc(100vw - 40px));
+  }
 }

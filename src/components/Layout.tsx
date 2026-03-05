@@ -154,6 +154,8 @@ export const Layout = () => {
   const location = useLocation()
   const { user } = useApp()
   const isOfferScreen = location.pathname.startsWith('/offer/')
+  const isOrderChatScreen = /^\/order\/[^/]+\/chat\/?$/.test(location.pathname) || (location.pathname.startsWith('/order/') && location.pathname.includes('/chat'))
+  const isFullscreenScreen = isOfferScreen || isOrderChatScreen
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const tabs = isArbitrator ? arbTabs : userTabs
@@ -169,7 +171,7 @@ export const Layout = () => {
   return (
     <div className="app">
       <SvgSprite />
-      {!isOfferScreen && (
+      {!isFullscreenScreen && (
         <header className="topbar">
           <div>
             <p className="topbar-eyebrow">secure gaming marketplace</p>
@@ -186,7 +188,7 @@ export const Layout = () => {
         <Outlet />
       </main>
 
-      {!isOfferScreen && (
+      {!isFullscreenScreen && (
         <nav className={isArbitrator ? 'bottom-nav' : 'bottom-nav portals'}>
           {tabs.map((tab) => {
             const active = isTabActive(location.pathname, tab.to, isArbitrator)
