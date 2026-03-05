@@ -1566,26 +1566,14 @@ export const ChatPage = () => {
       </section>
 
       <aside className="chat-meta card deal-card">
-        <h3 className="deal-title">
-          <svg className="icon" aria-hidden><use href="#i-lock" /></svg>
-          Secure deal
-        </h3>
-
-        <div className="deal-row">
-          <span className="deal-label">Offer</span>
-          <span className="deal-value">{offer?.title ?? order.offerId}</span>
+        <div className="deal-lock-wrap">
+          <svg className="deal-lock-icon" aria-hidden><use href="#i-lock" /></svg>
         </div>
+        <h3 className="deal-title">Secure deal</h3>
 
-        <div className="deal-row">
-          <span className="deal-label">Description</span>
-          <span className="deal-value">{offer?.description?.trim() || '—'}</span>
-        </div>
-
-        <div className="deal-row">
-          <span className="deal-label">Amount</span>
-          <span className="deal-value amount">{order.amountTon} TON</span>
-        </div>
-
+        <div className="deal-row"><span className="deal-label">Offer</span><span className="deal-value">{offer?.title ?? order.offerId}</span></div>
+        <div className="deal-row"><span className="deal-label">Description</span><span className="deal-value">{offer?.description?.trim() || '—'}</span></div>
+        <div className="deal-row"><span className="deal-label">Amount</span><span className="deal-value amount">{order.amountTon} TON</span></div>
         <div className="deal-row">
           <span className="deal-label">Status</span>
           <span className={isOrderPaid ? 'badge-paid' : 'badge-pending'}>

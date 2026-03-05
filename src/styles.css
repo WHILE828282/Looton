@@ -515,6 +515,89 @@ textarea.input{
 .chat-description{ margin: 8px 0 0; color: var(--text-secondary); line-height: 1.4; }
 .chat-empty{ margin-top: 8px; color: var(--text-muted); }
 
+.chat-sidebar,
+.chat-main,
+.chat-meta{
+  border-radius: 18px;
+}
+
+.chat-sidebar,
+.chat-meta{
+  background: rgba(12, 14, 20, 0.86);
+}
+
+.chat-sidebar{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.chat-meta{
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.deal-card{
+  padding: 14px;
+}
+
+.deal-lock-wrap{
+  display: grid;
+  place-items: center;
+  padding-top: 4px;
+}
+
+.deal-lock-icon{
+  width: 100px;
+  height: 100px;
+  color: rgba(255,255,255,0.9);
+}
+
+.deal-title{
+  margin: 0;
+  font-size: 38px;
+}
+
+.deal-row{
+  display: grid;
+  gap: 4px;
+}
+
+.deal-label{
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.deal-value{
+  color: var(--text-primary);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.badge-paid,
+.badge-pending{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.badge-paid{ color: #34d27b; }
+.badge-pending{ color: #f59e0b; }
+
+.deal-warning{
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+@media (max-width: 1099px){
+  .chat-shell{ grid-template-columns: 1fr; }
+  .chat-sidebar,.chat-main,.chat-meta{ min-height: auto; }
+}
+
 .chat-room{
   text-align: left;
   display: grid;
