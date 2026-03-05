@@ -5,7 +5,8 @@ import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+import { productApi } from '../lib/productApi'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, Review, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -831,31 +832,155 @@ export const OffersPage = () => {
   )
 }
 
-export const OfferDetailsPage = () => {
-  const { offers, user } = useApp()
-  const { offerId = '' } = useParams()
-  const offer = offers.find((o) => o.id === offerId)
+const StarRating = ({ rating }: { rating: Review['rating'] }) => (
+  <div className="review-stars" aria-label={`Rating ${rating} out of 5`}>
+    {Array.from({ length: 5 }).map((_, index) => (
+      <span key={index} className={index < rating ? 'active' : ''}>★</span>
+    ))}
+  </div>
+)
 
-  if (!offer) return <p>Offer not found</p>
+const ReviewCard = ({ review }: { review: Review }) => (
+  <article className="review-card">
+    <div className="review-avatar" aria-hidden>
+      <span>👤</span>
+    </div>
+    <div className="review-content">
+      <div className="review-head">
+        <div>
+          <p className="review-time">{review.relativeLabel}</p>
+          <p className="review-meta">{review.productLabel}, {review.priceRub} ₽</p>
+        </div>
+        <StarRating rating={review.rating} />
+      </div>
+      <p className="review-text">{review.text}</p>
+      {review.sellerReply && (
+        <div className="seller-reply-wrap">
+          <p className="seller-reply-title">Seller reply</p>
+          <div className="seller-reply-bubble">{review.sellerReply.text}</div>
+        </div>
+      )}
+    </div>
+  </article>
+)
+
+const SellerDescription = ({ text }: { text: string }) => {
+  const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="stack">
-      <h2>{offer.title}</h2>
-      <Card>
-        <p>{offer.description}</p>
-        <p>{offer.rules.warrantyText}</p>
-        <p>Delivery type: {offer.deliveryType}</p>
-        <p>Payout: {offer.payoutPolicy}</p>
-      </Card>
-      <Card>
-        <p>Seller ⭐ {offer.sellerStats.rating} · Deals {offer.sellerStats.deals}</p>
-        <p>Deposit {offer.sellerStats.depositTon} TON</p>
-      </Card>
-      {['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-        ? <p>Arbitrator accounts cannot purchase offers.</p>
-        : offer.sellerId === user.id
-          ? <p>You cannot buy your own offer.</p>
-          : <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>}
+    <section className="product-block">
+      <h3>Seller description</h3>
+      <p className={expanded ? 'seller-description expanded' : 'seller-description'}>{text}</p>
+      <button className="text-btn" onClick={() => setExpanded((v) => !v)}>
+        {expanded ? 'Hide' : 'Show more'}
+      </button>
+    </section>
+  )
+}
+
+const CommandsList = ({ commands }: { commands: Product['commands'] }) => (
+  <section className="product-block">
+    <h3>Useful commands</h3>
+    <ul className="commands-list">
+      {commands.map((item) => (
+        <li key={item.cmd}><strong>{item.cmd}</strong> — {item.description}</li>
+      ))}
+    </ul>
+  </section>
+)
+
+export const OfferDetailsPage = () => {
+  const navigate = useNavigate()
+  const { offerId = '' } = useParams()
+  const [product, setProduct] = useState<Product | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>('0')
+  const [isProductLoading, setIsProductLoading] = useState(true)
+  const [isReviewLoading, setIsReviewLoading] = useState(false)
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    setIsProductLoading(true)
+    productApi.getProduct(offerId).then((data) => {
+      if (!mounted) return
+      setProduct(data)
+      setIsProductLoading(false)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [offerId])
+
+  const loadMore = async () => {
+    if (isReviewLoading || nextCursor === null) return
+    setIsReviewLoading(true)
+    const page = await productApi.getReviews({ id: offerId, cursor: nextCursor, limit: 10 })
+    setReviews((prev) => [...prev, ...page.items])
+    setNextCursor(page.nextCursor)
+    setIsReviewLoading(false)
+  }
+
+  useEffect(() => {
+    setReviews([])
+    setNextCursor('0')
+  }, [offerId])
+
+  useEffect(() => {
+    void loadMore()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerId])
+
+  useEffect(() => {
+    if (!anchorRef.current) return
+    const observer = new IntersectionObserver((entries) => {
+      const isVisible = entries[0]?.isIntersecting
+      if (isVisible) void loadMore()
+    }, { rootMargin: '240px' })
+
+    observer.observe(anchorRef.current)
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorRef, nextCursor, isReviewLoading])
+
+  if (isProductLoading || !product) {
+    return <div className="stack"><p>Loading product...</p></div>
+  }
+
+  return (
+    <div className="product-page">
+      <header className="product-header">
+        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back">←</button>
+        <h2>{product.title}</h2>
+        <div className="product-header-actions">
+          <button className="icon-btn" aria-label="Search">⌕</button>
+          <button className="icon-btn" aria-label="Theme">☾</button>
+          <button className="icon-btn" aria-label="Menu">☰</button>
+        </div>
+      </header>
+
+      <section className="product-block product-meta-grid">
+        <div><span>Delivery method</span><strong>{product.deliveryMethod}</strong></div>
+        <div><span>Stock</span><strong>{product.stockText}</strong></div>
+        <div><span>Delivery time</span><strong>{product.deliveryTimeText}</strong></div>
+        {product.category && <div><span>Category</span><strong>{product.category}</strong></div>}
+      </section>
+
+      <SellerDescription text={product.sellerDescription} />
+      <CommandsList commands={product.commands} />
+
+      <section className="product-block">
+        <h3>Reviews</h3>
+        <div className="reviews-feed">
+          {reviews.map((review) => <ReviewCard key={review.id} review={review} />)}
+        </div>
+        {nextCursor !== null && (
+          <button className="more-btn" onClick={() => void loadMore()} disabled={isReviewLoading}>
+            {isReviewLoading ? 'Loading…' : 'Show more reviews'}
+          </button>
+        )}
+        <div ref={anchorRef} />
+      </section>
     </div>
   )
 }
