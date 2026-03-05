@@ -5,7 +5,8 @@ import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
+import { productApi } from '../lib/productApi'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -831,31 +832,233 @@ export const OffersPage = () => {
   )
 }
 
-export const OfferDetailsPage = () => {
-  const { offers, user } = useApp()
-  const { offerId = '' } = useParams()
-  const offer = offers.find((o) => o.id === offerId)
+const StarRating = ({ rating }: { rating: NonNullable<ProductChatMessage['rating']> }) => (
+  <div className="chat-stars" aria-label={`Rating ${rating} out of 5`}>
+    {Array.from({ length: 5 }).map((_, index) => (
+      <span key={index} className={index < rating ? 'active' : ''}>★</span>
+    ))}
+  </div>
+)
 
-  if (!offer) return <p>Offer not found</p>
+const formatChatDayLabel = (dateIso: string) => {
+  const date = new Date(dateIso)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const ChatBubble = ({ message, compact }: { message: ProductChatMessage; compact: boolean }) => (
+  <article className={`chat-message-row ${message.author === 'seller' ? 'seller' : 'buyer'} ${compact ? 'compact' : ''}`}>
+    <div className={`chat-message-bubble ${message.author === 'seller' ? 'seller' : 'buyer'}`}>
+      {message.orderMeta && (
+        <p className="chat-order-meta">{message.orderMeta.productLabel}, {message.orderMeta.priceRub} ₽</p>
+      )}
+      {message.rating && <StarRating rating={message.rating} />}
+      <p className="chat-message-text">{message.text}</p>
+    </div>
+  </article>
+)
+
+const SellerDescription = ({ text }: { text: string }) => {
+  const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="stack">
-      <h2>{offer.title}</h2>
-      <Card>
-        <p>{offer.description}</p>
-        <p>{offer.rules.warrantyText}</p>
-        <p>Delivery type: {offer.deliveryType}</p>
-        <p>Payout: {offer.payoutPolicy}</p>
-      </Card>
-      <Card>
-        <p>Seller ⭐ {offer.sellerStats.rating} · Deals {offer.sellerStats.deals}</p>
-        <p>Deposit {offer.sellerStats.depositTon} TON</p>
-      </Card>
-      {['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-        ? <p>Arbitrator accounts cannot purchase offers.</p>
-        : offer.sellerId === user.id
-          ? <p>You cannot buy your own offer.</p>
-          : <Link className="btn" to={`/checkout/${offer.id}`}>Buy</Link>}
+    <section className="product-block">
+      <h3>Seller description</h3>
+      <p className={expanded ? 'seller-description expanded' : 'seller-description'}>{text}</p>
+      <button className="text-btn" onClick={() => setExpanded((v) => !v)}>
+        {expanded ? 'Hide' : 'Show more'}
+      </button>
+    </section>
+  )
+}
+
+export const OfferDetailsPage = () => {
+  const { offers } = useApp()
+  const navigate = useNavigate()
+  const { offerId = '' } = useParams()
+  const currentOffer = offers.find((item) => item.id === offerId)
+  const [product, setProduct] = useState<Product | null>(null)
+  const [messages, setMessages] = useState<ProductChatMessage[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [isProductLoading, setIsProductLoading] = useState(true)
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const sellerName = currentOffer ? `verified_seller_${currentOffer.sellerId}` : 'verified_seller'
+  const topSentinelRef = useRef<HTMLDivElement | null>(null)
+  const messagesRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    setIsProductLoading(true)
+    productApi.getProduct({ id: offerId, fallbackTitle: currentOffer?.title, category: currentOffer?.category }).then((data) => {
+      if (!mounted) return
+      setProduct(data)
+      setIsProductLoading(false)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [offerId, currentOffer?.title, currentOffer?.category])
+
+  const loadOlderMessages = async () => {
+    if (isChatLoading || nextCursor === null) return
+    setIsChatLoading(true)
+    const previousHeight = messagesRef.current?.scrollHeight ?? 0
+
+    const page = await productApi.getChatMessages({
+      id: offerId,
+      cursor: nextCursor,
+      limit: 12,
+      productLabel: currentOffer?.title
+    })
+
+    setMessages((prev) => [...page.items, ...prev])
+    setNextCursor(page.nextCursor)
+    setIsChatLoading(false)
+
+    requestAnimationFrame(() => {
+      if (!messagesRef.current) return
+      const newHeight = messagesRef.current.scrollHeight
+      messagesRef.current.scrollTop += newHeight - previousHeight
+    })
+  }
+
+  useEffect(() => {
+    let active = true
+    const bootstrap = async () => {
+      setIsChatLoading(true)
+      const page = await productApi.getChatMessages({
+        id: offerId,
+        cursor: null,
+        limit: 12,
+        productLabel: currentOffer?.title
+      })
+      if (!active) return
+      setMessages(page.items)
+      setNextCursor(page.nextCursor)
+      setIsChatLoading(false)
+      requestAnimationFrame(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+        }
+      })
+    }
+
+    void bootstrap()
+    return () => {
+      active = false
+    }
+  }, [offerId, currentOffer?.title])
+
+  useEffect(() => {
+    if (!topSentinelRef.current || !messagesRef.current) return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void loadOlderMessages()
+    }, { root: messagesRef.current, rootMargin: '40px' })
+
+    observer.observe(topSentinelRef.current)
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesRef, topSentinelRef, nextCursor, isChatLoading, offerId])
+
+  const showDaySeparator = (index: number) => {
+    if (index === 0) return true
+    return formatChatDayLabel(messages[index - 1].createdAt) !== formatChatDayLabel(messages[index].createdAt)
+  }
+
+  const onSend = () => {
+    const text = chatInput.trim()
+    if (!text) return
+    const message: ProductChatMessage = {
+      id: `local-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      author: 'buyer',
+      text
+    }
+    setMessages((prev) => [...prev, message])
+    setChatInput('')
+    requestAnimationFrame(() => {
+      if (messagesRef.current) {
+        messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+      }
+    })
+  }
+
+  if (isProductLoading || !product) {
+    return <div className="stack"><p>Loading product...</p></div>
+  }
+
+  return (
+    <div className="product-page">
+      <header className="product-header">
+        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back">←</button>
+        <h2>{currentOffer?.title ?? product.title}</h2>
+        <div className="product-header-actions">
+          <button className="icon-btn" aria-label="Search">⌕</button>
+          <button className="icon-btn" aria-label="Theme">☾</button>
+          <button className="icon-btn" aria-label="Menu">☰</button>
+        </div>
+      </header>
+
+      <section className="product-block product-meta-grid">
+        <div><span>Delivery method</span><strong>{product.deliveryMethod}</strong></div>
+        <div><span>Stock</span><strong>{product.stockText}</strong></div>
+        <div><span>Delivery time</span><strong>{product.deliveryTimeText}</strong></div>
+        {product.category && <div><span>Category</span><strong>{product.category}</strong></div>}
+      </section>
+
+      <SellerDescription text={product.sellerDescription} />
+
+      <section className="seller-chat-screen">
+        <div className="seller-chat-top">
+          <div className="seller-chat-identity">
+            <span className="seller-avatar">S</span>
+            <div>
+              <p className="seller-chat-name">{sellerName}</p>
+              <p className="seller-chat-status">Online</p>
+            </div>
+          </div>
+          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+        </div>
+
+        <div className="chat-messages" ref={messagesRef}>
+          <div ref={topSentinelRef} className="chat-top-sentinel" />
+          {nextCursor !== null && (
+            <button className="load-older-btn" onClick={() => void loadOlderMessages()} disabled={isChatLoading}>
+              {isChatLoading ? 'Loading…' : 'Load older messages'}
+            </button>
+          )}
+
+          {!messages.length && (
+            <div className="chat-empty-tip">Message seller before payment</div>
+          )}
+
+          {messages.map((message, index) => {
+            const compact = index > 0 && messages[index - 1].author === message.author
+            return (
+              <div key={message.id}>
+                {showDaySeparator(index) && (
+                  <div className="chat-day-separator">
+                    <span>{formatChatDayLabel(message.createdAt)}</span>
+                  </div>
+                )}
+                <ChatBubble message={message} compact={compact} />
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="chat-input-bar">
+          <input
+            className="input chat-offer-input"
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder="Write a message..."
+          />
+          <button className="btn chat-send-btn" type="button" onClick={onSend} disabled={!chatInput.trim()}>
+            ➤
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
@@ -976,16 +1179,12 @@ export const ChatPage = () => {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState('')
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [chatBlocked, setChatBlocked] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
   const [reportDetails, setReportDetails] = useState('')
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
-  const [typingUserName, setTypingUserName] = useState<string | null>(null)
+  const [expandedDescription, setExpandedDescription] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const typingTimeoutRef = useRef<number | null>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -998,7 +1197,6 @@ export const ChatPage = () => {
     return item.id === requestedDisputeId
   })
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const staffKey = getStaffAssigneeKey(user.id, user.username)
   const canModerateChat = isArbitrator && Boolean(activeDispute && isAssignedToStaff(activeDispute.assignedTo, user.id, user.username))
   const isParticipant = user.id === order.buyerId || user.id === order.sellerId
   const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
@@ -1016,24 +1214,8 @@ export const ChatPage = () => {
     )
   }
 
-  const paidStatuses: OrderStatus[] = [
-    'paid',
-    'delivering',
-    'delivered',
-    'confirmed',
-    'auto_confirmed',
-    'disputed',
-    'resolved_buyer',
-    'resolved_seller'
-  ]
-  const isOrderPaid = Boolean(order.paidAt) || paidStatuses.includes(order.status)
   const messages = chatMessages
     .filter((m) => m.orderId === order.id)
-    .filter((m) => {
-      if (m.sender !== 'system') return true
-      if (!m.text.includes('payment confirmed')) return true
-      return isOrderPaid
-    })
     .sort((a, b) => a.createdAt - b.createdAt)
 
   const groupedMessages = useMemo(
@@ -1065,13 +1247,11 @@ export const ChatPage = () => {
     [messages]
   )
 
-  const sellerName = `seller_${order.sellerId}`
-  const peerName = canModerateChat ? 'Dispute room' : sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
-  const peerSubtitle = canModerateChat ? 'Buyer and seller online' : sender === 'buyer' ? 'Seller online' : 'Buyer online'
-  const peerId = sender === 'buyer' ? order.sellerId : order.buyerId
-  const peerRole = sender === 'buyer' ? 'seller' : 'buyer'
-  const typingPeerName = sender === 'buyer' ? sellerName : `buyer_${order.buyerId}`
-
+  useEffect(() => {
+    if (!canModerateChat || !activeDispute) return
+    const alias = activeDispute.arbitratorAlias || `arb_${user.id}`
+    joinDisputeChat(activeDispute.id, alias)
+  }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
     { value: 'not_received', label: 'Seller did not deliver the order' },
@@ -1080,179 +1260,43 @@ export const ChatPage = () => {
     { value: 'other', label: 'Other issue' }
   ]
 
-  const lastNotifiedKey = `looton_last_notified_${order.id}`
-
-  const latestIncoming = [...messages].reverse().find((message) => message.sender !== sender)
-  const hasNewIncoming = Boolean(latestIncoming && localStorage.getItem(lastNotifiedKey) !== latestIncoming.id)
-  const notifState: 'off' | 'on' | 'new' = notificationsEnabled ? (hasNewIncoming ? 'new' : 'on') : 'off'
-
-
-  useEffect(() => {
-    if (!canModerateChat || !activeDispute) return
-    const alias = activeDispute.arbitratorAlias || `arb_${user.id}`
-    joinDisputeChat(activeDispute.id, alias)
-  }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
-
-  useEffect(() => {
-    const saved = localStorage.getItem(`looton_notifications_${order.id}`)
-    setNotificationsEnabled(saved === 'on')
-    setChatBlocked(localStorage.getItem(`looton_chat_blocked_${order.id}`) === '1')
-  }, [order.id])
-
-  useEffect(() => {
-    localStorage.setItem(`looton_notifications_${order.id}`, notificationsEnabled ? 'on' : 'off')
-  }, [order.id, notificationsEnabled])
-
-  useEffect(() => {
-    localStorage.setItem(`looton_chat_blocked_${order.id}`, chatBlocked ? '1' : '0')
-  }, [order.id, chatBlocked])
-
-  useEffect(() => {
-    if (!notificationsEnabled || !messages.length) return
-    const latest = messages[messages.length - 1]
-    if (latest.sender === sender) return
-
-    const lastNotifiedId = localStorage.getItem(lastNotifiedKey)
-    if (lastNotifiedId === latest.id) return
-
-    if (typeof Notification !== 'undefined') {
-      if (Notification.permission === 'granted') {
-        new Notification(`Looton • ${peerName}`, { body: latest.text })
-      } else if (Notification.permission === 'default') {
-        Notification.requestPermission()
-      }
-    }
-
-    localStorage.setItem(lastNotifiedKey, latest.id)
-  }, [messages, notificationsEnabled, sender, peerName, lastNotifiedKey])
-
-  useEffect(() => {
-    const key = `looton_typing_${order.id}`
-
-    const clearTyping = () => {
-      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
-      typingTimeoutRef.current = window.setTimeout(() => setTypingUserName(null), 2500)
-    }
-
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== key || !event.newValue) return
-
-      try {
-        const payload = JSON.parse(event.newValue) as {
-          sender: ChatMessage['sender']
-          userName: string
-          ts: number
-        }
-
-        if (payload.sender === sender || Date.now() - payload.ts > 3000) return
-        setTypingUserName(payload.userName)
-        clearTyping()
-      } catch {
-        setTypingUserName(null)
-      }
-    }
-
-    window.addEventListener('storage', onStorage)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
-    }
-  }, [order.id, sender])
-
-  useEffect(() => {
-    if (chatBlocked || !draft.trim()) return
-    const key = `looton_typing_${order.id}`
-    const handle = window.setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify({ sender, userName: user.username || typingPeerName, ts: Date.now() }))
-    }, 250)
-
-    return () => window.clearTimeout(handle)
-  }, [chatBlocked, draft, order.id, sender, user.username, typingPeerName])
-
-  const messageReadState = (message: ChatMessage, index: number): 'sent' | 'delivered' | 'read' => {
-    if (message.status) return message.status
-    if (message.readAt) return 'read'
-    if (message.deliveredAt) return 'delivered'
-
-    const hasReplyAfter = messages.slice(index + 1).some((item) => item.sender !== 'system' && item.sender !== message.sender)
-    if (hasReplyAfter) return 'read'
-    if (Date.now() - message.createdAt > 3000) return 'delivered'
-    return 'sent'
-  }
-
-
   return (
-    <div className="chat-shell">
-      <aside className="chat-sidebar card">
-        <h2>Description</h2>
-        {(offer?.description?.trim() ?? '').length > 0
-          ? <p className="chat-description">{offer?.description?.trim()}</p>
-          : <small className="chat-empty">No description provided.</small>}
-      </aside>
+    <div className="order-chat-mobile">
+      <header className="product-header">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back">←</button>
+        <h2>{offer?.title ?? 'Order chat'}</h2>
+        <div className="product-header-actions"><button className="icon-btn" aria-label="Menu">☰</button></div>
+      </header>
 
-      <section className="chat-main card">
-        <header className="chat-header">
-          {canModerateChat ? (
-            <div className="chat-peer">
-              <span className="peer-avatar peer-avatar-fallback">⚖️</span>
-              <div className="peer-meta">
-                <strong className="peer-name">{peerName}</strong>
-                <small className="peer-status">{peerSubtitle}</small>
-              </div>
-            </div>
-          ) : (
-            <Link className="chat-peer" to={`/profile?view=${peerId}&role=${peerRole}&name=${peerName}`}>
-              <span className="peer-avatar peer-avatar-fallback">{peerName[0]?.toUpperCase()}<span className="online-dot" aria-hidden /></span>
-              <div className="peer-meta">
-                <strong className="peer-name">{peerName}</strong>
-                <small className="peer-status">{peerSubtitle}</small>
-              </div>
-            </Link>
-          )}
+      <section className="product-block product-meta-grid">
+        <div><span>Delivery method</span><strong>{offer?.deliveryType ?? 'Manual'}</strong></div>
+        <div><span>Stock</span><strong>{offer?.stock ? `${offer.stock} units` : 'Available'}</strong></div>
+        <div><span>Delivery time</span><strong>{offer?.deliveryType === 'instant' ? '1 minute – 1 hour' : '5 minutes – 1 day'}</strong></div>
+        <div><span>Category</span><strong>{offer?.category ?? 'General'}</strong></div>
+      </section>
 
-          <div className="chat-header-actions">
-            <button className={`icon-btn notif ${notifState}`} aria-label="Toggle notifications" onClick={() => {
-              setNotificationsEnabled((v) => {
-                const next = !v
-                if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                  Notification.requestPermission()
-                }
-                return next
-              })
-            }}>
-              {notifState === 'off' && <svg className="icon" aria-hidden><use href="#i-bell-off" /></svg>}
-              {notifState === 'on' && <svg className="icon" aria-hidden><use href="#i-bell" /></svg>}
-              {notifState === 'new' && <svg className="icon" aria-hidden><use href="#i-bell-dot" /></svg>}
-            </button>
-            <div className="chat-menu-wrap">
-              <button className="icon-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Open chat menu">
-                <svg className="icon" aria-hidden><use href="#i-dots" /></svg>
-              </button>
-              {menuOpen && (
-                <div className="chat-menu card">
-                  <button className="chat-menu-item" onClick={() => {
-                    setChatBlocked((v) => !v)
-                    setMenuOpen(false)
-                  }}>
-                    {chatBlocked ? 'Unblock user' : 'Block user'}
-                  </button>
-                  {!canModerateChat && <button className="chat-menu-item" onClick={() => {
-                    setReportOpen(true)
-                    setMenuOpen(false)
-                  }}>
-                    Report user
-                  </button>}
-                </div>
-              )}
+      <section className="product-block">
+        <h3>Seller description</h3>
+        <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offer?.description?.trim() || 'Contact seller before payment for fast processing.'}</p>
+        <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
+      </section>
+
+      <section className="seller-chat-screen">
+        <div className="seller-chat-top">
+          <div className="seller-chat-identity">
+            <span className="seller-avatar">{`S`}</span>
+            <div>
+              <p className="seller-chat-name">seller_{order.sellerId}</p>
+              <p className="seller-chat-status">Online</p>
             </div>
           </div>
-        </header>
+          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+        </div>
 
-        <div className="chat-list">
+        <div className="chat-messages">
           {groupedMessages.length ? groupedMessages.map(({ message, isGroupStart, isGroupEnd }, index) => {
             const isMine = (sender === 'buyer' && message.sender === 'buyer') || (sender === 'seller' && message.sender === 'seller') || (sender === 'arb' && message.sender === 'arb')
             const label = message.sender === 'system' ? 'System' : message.sender === 'buyer' ? `buyer_${order.buyerId}` : message.sender === 'seller' ? `seller_${order.sellerId}` : `Arbitrator ${message.arbAlias ?? ''}`.trim()
-            const readState = messageReadState(message, index)
             return (
               <div key={message.id} className={`msg-row ${isMine ? 'mine' : ''} ${isGroupStart ? 'group-start' : 'group-middle'} ${isGroupEnd ? 'group-end' : ''}`}>
                 {!isMine && message.sender !== 'system' && (isGroupStart
@@ -1263,28 +1307,12 @@ export const ChatPage = () => {
                   {message.sender === 'system' && <small className="msg-author">{label}</small>}
                   <p>{message.text}</p>
                   {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="chat-attachment" />}
-                  <small className="msg-time">
-                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {isMine && message.sender !== 'system' && (
-                      <span className={`msg-read msg-read-${readState}`}>
-                        {readState === 'sent' && '✓'}
-                        {readState !== 'sent' && '✓✓'}
-                      </span>
-                    )}
-                  </small>
+                  <small className="msg-time">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
                 </div>
               </div>
             )
-          }) : <div className="chat-empty-state"><svg className="icon big" aria-hidden><use href="#i-chat" /></svg><p>No messages yet</p></div>}
+          }) : <div className="chat-empty-tip">No messages yet</div>}
         </div>
-
-        {typingUserName && (
-          <div className="typing-indicator" role="status" aria-live="polite">
-            <span className="typing-dot" aria-hidden />
-            <span>{typingUserName} is typing…</span>
-          </div>
-        )}
-
 
         {reportOpen && (
           <div className="chat-report card">
@@ -1310,7 +1338,7 @@ export const ChatPage = () => {
           </div>
         )}
 
-        <div className="chat-composer chat-compose">
+        <div className="chat-input-bar">
           <label className="icon-btn attach-btn" title="Attach file">
             <svg className="icon icon-paperclip" aria-hidden><use href="#i-attach" /></svg>
             <input
@@ -1327,22 +1355,18 @@ export const ChatPage = () => {
               }}
             />
           </label>
-
           <div className="chat-input-wrap">
             <textarea
               className="input chat-input"
-              placeholder={chatBlocked ? 'You blocked this user. Unblock to continue chatting.' : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
+              placeholder={canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
               value={draft}
-              disabled={chatBlocked}
               onChange={(event) => setDraft(event.target.value)}
               rows={1}
             />
             {attachedImage && <small className="attach-hint">Image attached</small>}
           </div>
-
           <button
             className="icon-btn send-btn"
-            disabled={chatBlocked}
             aria-label="Send message"
             onClick={() => {
               sendOrderMessage(
@@ -1361,52 +1385,10 @@ export const ChatPage = () => {
           </button>
         </div>
       </section>
-
-      <aside className="chat-meta card deal-card">
-        <h3 className="deal-title">
-          <svg className="icon" aria-hidden><use href="#i-lock" /></svg>
-          Secure deal
-        </h3>
-
-        <div className="deal-row">
-          <span className="deal-label">Offer</span>
-          <span className="deal-value">{offer?.title ?? order.offerId}</span>
-        </div>
-
-        <div className="deal-row">
-          <span className="deal-label">Description</span>
-          <span className="deal-value">{offer?.description?.trim() || '—'}</span>
-        </div>
-
-        <div className="deal-row">
-          <span className="deal-label">Amount</span>
-          <span className="deal-value amount">{order.amountTon} TON</span>
-        </div>
-
-        <div className="deal-row">
-          <span className="deal-label">Status</span>
-          <span className={isOrderPaid ? 'badge-paid' : 'badge-pending'}>
-            <svg className="icon" aria-hidden><use href="#i-check" /></svg>
-            {order.status.replace('_', ' ')}
-          </span>
-        </div>
-
-        {canModerateChat && (
-          <>
-            <div className="deal-row"><span className="deal-label">Game</span><span className="deal-value">{games.find((game) => game.id === offer?.gameId)?.title ?? offer?.gameId ?? '-'}</span></div>
-            <div className="deal-row"><span className="deal-label">Category</span><span className="deal-value">{offer?.category ?? '-'}</span></div>
-            <div className="deal-row"><span className="deal-label">Dispute reason</span><span className="deal-value">{activeDispute?.reasonCode ?? '-'}</span></div>
-          </>
-        )}
-
-        {!isOrderPaid && <p className="chat-warning">Order is not paid yet — payment-confirmed system message is hidden.</p>}
-        {chatBlocked && <p className="chat-warning">This conversation is blocked on your side.</p>}
-
-        <p className="deal-warning">Never transfer funds outside the platform</p>
-      </aside>
     </div>
   )
 }
+
 
 
 export const MessagesPage = () => {
