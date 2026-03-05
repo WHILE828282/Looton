@@ -1279,10 +1279,15 @@ export const ChatPage = () => {
       </section>
 
       <div className="order-chat-layout">
-        <section className="product-block">
-          <h3>Seller description</h3>
+        <section className="product-block listing-panel">
+          <h3>Listing details</h3>
           <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offerDescription}</p>
           <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
+          <div className="listing-tags">
+            <span className="chip">{offer?.category ?? 'General'}</span>
+            <span className="chip">{offer?.deliveryType ?? 'manual'} delivery</span>
+            <span className="chip">Escrow protected</span>
+          </div>
         </section>
 
         <section className="seller-chat-screen">
@@ -1391,14 +1396,15 @@ export const ChatPage = () => {
         </section>
 
         <aside className="product-block deal-summary">
+          <p className="deal-kicker">Escrow protection</p>
           <h3>Secure deal</h3>
           <ul className="deal-summary-list">
-            <li><span>Offer</span><strong>{offerTitle}</strong></li>
-            <li><span>Description</span><strong>{offerDescription}</strong></li>
-            <li><span>Amount</span><strong>{order.amountTon} TON</strong></li>
+            <li><span>Offer</span><strong className="deal-value" title={offerTitle}>{offerTitle}</strong></li>
+            <li><span>Description</span><strong className="deal-value" title={offerDescription}>{offerDescription}</strong></li>
+            <li><span>Amount</span><strong className="deal-amount">{order.amountTon} TON</strong></li>
             <li><span>Status</span><strong className="deal-status-text">{orderStatusLabel}</strong></li>
           </ul>
-          <p className="deal-summary-note">Never transfer funds outside the platform.</p>
+          <div className="deal-summary-note">⚠️ Never transfer funds outside the platform.</div>
         </aside>
       </div>
     </div>
