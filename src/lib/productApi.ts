@@ -1,93 +1,108 @@
-import type { Product, Review } from '../types'
+import type { OfferCategory } from '../types'
+import type { Product, ProductChatMessage } from '../types'
 
-const mockProducts: Record<string, Product> = {
-  'offer-1': {
-    id: 'offer-1',
-    title: 'Robux Roblox',
-    deliveryMethod: 'Game Pass (5 days)',
-    stockText: '18 445 units available',
-    deliveryTimeText: '1 minute – 1 day',
-    category: 'Roblox Currency',
-    sellerDescription:
-      '👋 Hello! You can buy Robux at any time.\n\n🤖 Auto-delivery is enabled and all fees are on me.\n\nℹ️ After payment, you will get clear step-by-step instructions for setting the correct Game Pass price.\n\n📋 Please read the commands section below before ordering.\n\n✅ Fast support and smooth deals every day.',
-    commands: [
-      { cmd: '!calc 1000', description: 'calculate Game Pass price for 1000 Robux' },
-      { cmd: '!rate', description: 'show the latest exchange rate in TON' },
-      { cmd: '!myorders', description: 'show your last 10 completed orders' },
-      { cmd: '!help', description: 'open quick setup and FAQ' }
-    ]
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const categoryDetails: Record<OfferCategory, { categoryTitle: string; description: string }> = {
+  currency: {
+    categoryTitle: 'Game Currency',
+    description: '⚡ Fast balance top-ups with clear transfer instructions and delivery confirmation in chat.'
+  },
+  items: {
+    categoryTitle: 'In-game Items',
+    description: '🎁 Safe item transfer flow with proof steps and quick support directly in the seller chat.'
+  },
+  accounts: {
+    categoryTitle: 'Game Accounts',
+    description: '🔐 Account transfer with secure handover checklist and post-delivery confirmation.'
+  },
+  services: {
+    categoryTitle: 'Game Services',
+    description: '🛠️ Service orders with transparent progress updates and agreed completion milestones.'
+  },
+  subscriptions: {
+    categoryTitle: 'Subscriptions',
+    description: '📦 Subscription activation workflow with expected activation time and support guidance.'
+  },
+  gifts: {
+    categoryTitle: 'Digital Gifts',
+    description: '🎉 Gift delivery with recipient verification and instant status updates in chat.'
   }
 }
 
-const seededReviews: Review[] = [
+const chatTemplates: Array<Omit<ProductChatMessage, 'id'>> = [
   {
-    id: 'r-1',
     createdAt: '2026-03-01T10:00:00.000Z',
-    relativeLabel: 'This week',
-    productLabel: 'Roblox',
-    priceRub: 800,
+    author: 'buyer',
+    text: 'Hello! I completed the payment, can you check my order?',
     rating: 5,
-    text: 'Everything was perfect. Super fast delivery!',
-    sellerReply: { text: 'Thank you for your review!' }
+    orderMeta: { productLabel: 'Order', priceRub: 800 }
   },
   {
-    id: 'r-2',
-    createdAt: '2026-02-27T11:00:00.000Z',
-    relativeLabel: 'This week',
-    productLabel: 'Roblox',
-    priceRub: 500,
-    rating: 5,
-    text: 'Second purchase. Reliable seller, recommended.',
-    sellerReply: { text: 'Appreciate it! You are always welcome.' }
+    createdAt: '2026-03-01T10:01:00.000Z',
+    author: 'seller',
+    text: 'Got it. Please send your game nickname and I will complete it right now.'
   },
   {
-    id: 'r-3',
-    createdAt: '2026-02-22T11:00:00.000Z',
-    relativeLabel: '7 days ago',
-    productLabel: 'Roblox',
-    priceRub: 150,
-    rating: 5,
-    text: 'Great price and quick process.'
-  },
-  {
-    id: 'r-4',
-    createdAt: '2026-02-18T08:00:00.000Z',
-    relativeLabel: 'This month',
-    productLabel: 'Roblox',
-    priceRub: 900,
-    rating: 4,
-    text: 'Good overall, took a little longer than expected.',
-    sellerReply: { text: 'Thanks! We are working on even faster delivery.' }
+    createdAt: '2026-03-01T10:04:00.000Z',
+    author: 'buyer',
+    text: 'Sent. Everything looks good so far, thanks!',
+    orderMeta: { productLabel: 'Order', priceRub: 500 }
   }
 ]
 
-const allReviewsByProduct: Record<string, Review[]> = {
-  'offer-1': Array.from({ length: 28 }).map((_, index) => {
-    const base = seededReviews[index % seededReviews.length]
+const buildProduct = (params: { id: string; fallbackTitle?: string; category?: OfferCategory }): Product => {
+  const category = params.category ? categoryDetails[params.category] : undefined
+  return {
+    id: params.id,
+    title: params.fallbackTitle ?? 'Digital Product',
+    deliveryMethod: 'Automated / Manual',
+    stockText: 'Live stock available',
+    deliveryTimeText: '1 minute – 1 day',
+    category: category?.categoryTitle ?? 'Marketplace Goods',
+    sellerDescription: category?.description ?? '💬 Contact seller before payment for the fastest and safest delivery.'
+  }
+}
+
+const buildChat = (productId: string, productLabel?: string): ProductChatMessage[] => {
+  return Array.from({ length: 18 }).map((_, index) => {
+    const base = chatTemplates[index % chatTemplates.length]
+    const dayOffset = Math.floor(index / 6)
+    const createdAt = new Date(Date.UTC(2026, 2, 1 + dayOffset, 10, index % 60)).toISOString()
+
     return {
       ...base,
-      id: `${base.id}-${index + 1}`,
-      priceRub: base.priceRub + (index % 4) * 50
+      createdAt,
+      id: `${productId}-m-${index + 1}`,
+      orderMeta: base.orderMeta
+        ? {
+            ...base.orderMeta,
+            productLabel: productLabel ?? base.orderMeta.productLabel,
+            priceRub: base.orderMeta.priceRub + (index % 3) * 100
+          }
+        : undefined
     }
   })
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
 export const productApi = {
-  async getProduct(id: string): Promise<Product> {
-    // API contract: GET /api/products/:id
-    await wait(180)
-    return mockProducts[id] ?? mockProducts['offer-1']
+  async getProduct(params: { id: string; fallbackTitle?: string; category?: OfferCategory }): Promise<Product> {
+    await wait(120)
+    return buildProduct(params)
   },
-  async getReviews(params: { id: string; cursor?: string | null; limit?: number }): Promise<{ items: Review[]; nextCursor: string | null }> {
-    // API contract: GET /api/products/:id/reviews?cursor=...&limit=10
-    await wait(220)
-    const list = allReviewsByProduct[params.id] ?? allReviewsByProduct['offer-1']
-    const limit = params.limit ?? 10
-    const start = params.cursor ? Number(params.cursor) : 0
-    const items = list.slice(start, start + limit)
-    const nextCursor = start + limit < list.length ? String(start + limit) : null
+  async getChatMessages(params: {
+    id: string
+    cursor?: string | null
+    limit?: number
+    productLabel?: string
+  }): Promise<{ items: ProductChatMessage[]; nextCursor: string | null }> {
+    await wait(180)
+    const list = buildChat(params.id, params.productLabel)
+    const limit = params.limit ?? 20
+    const end = params.cursor ? Number(params.cursor) : list.length
+    const start = Math.max(0, end - limit)
+    const items = list.slice(start, end)
+    const nextCursor = start > 0 ? String(start) : null
     return { items, nextCursor }
   }
 }

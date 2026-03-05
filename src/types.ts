@@ -135,7 +135,6 @@ export type Product = {
   deliveryTimeText: string
   category?: string
   sellerDescription: string
-  commands: { cmd: string; description: string }[]
 }
 
 export type Review = {
@@ -150,4 +149,13 @@ export type Review = {
     text: string
     createdAt?: string
   }
+}
+
+export type ProductChatMessage = {
+  id: string
+  createdAt: string
+  author: 'buyer' | 'seller'
+  text: string
+  rating?: 1 | 2 | 3 | 4 | 5
+  orderMeta?: { productLabel: string; priceRub: number }
 }

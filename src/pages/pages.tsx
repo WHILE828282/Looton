@@ -6,7 +6,7 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, Review, Role } from '../types'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
 type SellForm = {
   gameId: string
@@ -832,34 +832,27 @@ export const OffersPage = () => {
   )
 }
 
-const StarRating = ({ rating }: { rating: Review['rating'] }) => (
-  <div className="review-stars" aria-label={`Rating ${rating} out of 5`}>
+const StarRating = ({ rating }: { rating: NonNullable<ProductChatMessage['rating']> }) => (
+  <div className="chat-stars" aria-label={`Rating ${rating} out of 5`}>
     {Array.from({ length: 5 }).map((_, index) => (
       <span key={index} className={index < rating ? 'active' : ''}>★</span>
     ))}
   </div>
 )
 
-const ReviewCard = ({ review }: { review: Review }) => (
-  <article className="review-card">
-    <div className="review-avatar" aria-hidden>
-      <span>👤</span>
-    </div>
-    <div className="review-content">
-      <div className="review-head">
-        <div>
-          <p className="review-time">{review.relativeLabel}</p>
-          <p className="review-meta">{review.productLabel}, {review.priceRub} ₽</p>
-        </div>
-        <StarRating rating={review.rating} />
-      </div>
-      <p className="review-text">{review.text}</p>
-      {review.sellerReply && (
-        <div className="seller-reply-wrap">
-          <p className="seller-reply-title">Seller reply</p>
-          <div className="seller-reply-bubble">{review.sellerReply.text}</div>
-        </div>
+const formatChatDayLabel = (dateIso: string) => {
+  const date = new Date(dateIso)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const ChatBubble = ({ message, compact }: { message: ProductChatMessage; compact: boolean }) => (
+  <article className={`chat-message-row ${message.author === 'seller' ? 'seller' : 'buyer'} ${compact ? 'compact' : ''}`}>
+    <div className={`chat-message-bubble ${message.author === 'seller' ? 'seller' : 'buyer'}`}>
+      {message.orderMeta && (
+        <p className="chat-order-meta">{message.orderMeta.productLabel}, {message.orderMeta.priceRub} ₽</p>
       )}
+      {message.rating && <StarRating rating={message.rating} />}
+      <p className="chat-message-text">{message.text}</p>
     </div>
   </article>
 )
@@ -878,31 +871,25 @@ const SellerDescription = ({ text }: { text: string }) => {
   )
 }
 
-const CommandsList = ({ commands }: { commands: Product['commands'] }) => (
-  <section className="product-block">
-    <h3>Useful commands</h3>
-    <ul className="commands-list">
-      {commands.map((item) => (
-        <li key={item.cmd}><strong>{item.cmd}</strong> — {item.description}</li>
-      ))}
-    </ul>
-  </section>
-)
-
 export const OfferDetailsPage = () => {
+  const { offers } = useApp()
   const navigate = useNavigate()
   const { offerId = '' } = useParams()
+  const currentOffer = offers.find((item) => item.id === offerId)
   const [product, setProduct] = useState<Product | null>(null)
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>('0')
+  const [messages, setMessages] = useState<ProductChatMessage[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [isProductLoading, setIsProductLoading] = useState(true)
-  const [isReviewLoading, setIsReviewLoading] = useState(false)
-  const anchorRef = useRef<HTMLDivElement | null>(null)
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const sellerName = currentOffer ? `verified_seller_${currentOffer.sellerId}` : 'verified_seller'
+  const topSentinelRef = useRef<HTMLDivElement | null>(null)
+  const messagesRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let mounted = true
     setIsProductLoading(true)
-    productApi.getProduct(offerId).then((data) => {
+    productApi.getProduct({ id: offerId, fallbackTitle: currentOffer?.title, category: currentOffer?.category }).then((data) => {
       if (!mounted) return
       setProduct(data)
       setIsProductLoading(false)
@@ -910,38 +897,91 @@ export const OfferDetailsPage = () => {
     return () => {
       mounted = false
     }
-  }, [offerId])
+  }, [offerId, currentOffer?.title, currentOffer?.category])
 
-  const loadMore = async () => {
-    if (isReviewLoading || nextCursor === null) return
-    setIsReviewLoading(true)
-    const page = await productApi.getReviews({ id: offerId, cursor: nextCursor, limit: 10 })
-    setReviews((prev) => [...prev, ...page.items])
+  const loadOlderMessages = async () => {
+    if (isChatLoading || nextCursor === null) return
+    setIsChatLoading(true)
+    const previousHeight = messagesRef.current?.scrollHeight ?? 0
+
+    const page = await productApi.getChatMessages({
+      id: offerId,
+      cursor: nextCursor,
+      limit: 12,
+      productLabel: currentOffer?.title
+    })
+
+    setMessages((prev) => [...page.items, ...prev])
     setNextCursor(page.nextCursor)
-    setIsReviewLoading(false)
+    setIsChatLoading(false)
+
+    requestAnimationFrame(() => {
+      if (!messagesRef.current) return
+      const newHeight = messagesRef.current.scrollHeight
+      messagesRef.current.scrollTop += newHeight - previousHeight
+    })
   }
 
   useEffect(() => {
-    setReviews([])
-    setNextCursor('0')
-  }, [offerId])
+    let active = true
+    const bootstrap = async () => {
+      setIsChatLoading(true)
+      const page = await productApi.getChatMessages({
+        id: offerId,
+        cursor: null,
+        limit: 12,
+        productLabel: currentOffer?.title
+      })
+      if (!active) return
+      setMessages(page.items)
+      setNextCursor(page.nextCursor)
+      setIsChatLoading(false)
+      requestAnimationFrame(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+        }
+      })
+    }
+
+    void bootstrap()
+    return () => {
+      active = false
+    }
+  }, [offerId, currentOffer?.title])
 
   useEffect(() => {
-    void loadMore()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offerId])
-
-  useEffect(() => {
-    if (!anchorRef.current) return
+    if (!topSentinelRef.current || !messagesRef.current) return
     const observer = new IntersectionObserver((entries) => {
-      const isVisible = entries[0]?.isIntersecting
-      if (isVisible) void loadMore()
-    }, { rootMargin: '240px' })
+      if (entries[0]?.isIntersecting) void loadOlderMessages()
+    }, { root: messagesRef.current, rootMargin: '40px' })
 
-    observer.observe(anchorRef.current)
+    observer.observe(topSentinelRef.current)
     return () => observer.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchorRef, nextCursor, isReviewLoading])
+  }, [messagesRef, topSentinelRef, nextCursor, isChatLoading, offerId])
+
+  const showDaySeparator = (index: number) => {
+    if (index === 0) return true
+    return formatChatDayLabel(messages[index - 1].createdAt) !== formatChatDayLabel(messages[index].createdAt)
+  }
+
+  const onSend = () => {
+    const text = chatInput.trim()
+    if (!text) return
+    const message: ProductChatMessage = {
+      id: `local-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      author: 'buyer',
+      text
+    }
+    setMessages((prev) => [...prev, message])
+    setChatInput('')
+    requestAnimationFrame(() => {
+      if (messagesRef.current) {
+        messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+      }
+    })
+  }
 
   if (isProductLoading || !product) {
     return <div className="stack"><p>Loading product...</p></div>
@@ -951,7 +991,7 @@ export const OfferDetailsPage = () => {
     <div className="product-page">
       <header className="product-header">
         <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back">←</button>
-        <h2>{product.title}</h2>
+        <h2>{currentOffer?.title ?? product.title}</h2>
         <div className="product-header-actions">
           <button className="icon-btn" aria-label="Search">⌕</button>
           <button className="icon-btn" aria-label="Theme">☾</button>
@@ -967,19 +1007,57 @@ export const OfferDetailsPage = () => {
       </section>
 
       <SellerDescription text={product.sellerDescription} />
-      <CommandsList commands={product.commands} />
 
-      <section className="product-block">
-        <h3>Reviews</h3>
-        <div className="reviews-feed">
-          {reviews.map((review) => <ReviewCard key={review.id} review={review} />)}
+      <section className="seller-chat-screen">
+        <div className="seller-chat-top">
+          <div className="seller-chat-identity">
+            <span className="seller-avatar">S</span>
+            <div>
+              <p className="seller-chat-name">{sellerName}</p>
+              <p className="seller-chat-status">Online</p>
+            </div>
+          </div>
+          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
         </div>
-        {nextCursor !== null && (
-          <button className="more-btn" onClick={() => void loadMore()} disabled={isReviewLoading}>
-            {isReviewLoading ? 'Loading…' : 'Show more reviews'}
+
+        <div className="chat-messages" ref={messagesRef}>
+          <div ref={topSentinelRef} className="chat-top-sentinel" />
+          {nextCursor !== null && (
+            <button className="load-older-btn" onClick={() => void loadOlderMessages()} disabled={isChatLoading}>
+              {isChatLoading ? 'Loading…' : 'Load older messages'}
+            </button>
+          )}
+
+          {!messages.length && (
+            <div className="chat-empty-tip">Message seller before payment</div>
+          )}
+
+          {messages.map((message, index) => {
+            const compact = index > 0 && messages[index - 1].author === message.author
+            return (
+              <div key={message.id}>
+                {showDaySeparator(index) && (
+                  <div className="chat-day-separator">
+                    <span>{formatChatDayLabel(message.createdAt)}</span>
+                  </div>
+                )}
+                <ChatBubble message={message} compact={compact} />
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="chat-input-bar">
+          <input
+            className="input chat-offer-input"
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder="Write a message..."
+          />
+          <button className="btn chat-send-btn" type="button" onClick={onSend} disabled={!chatInput.trim()}>
+            ➤
           </button>
-        )}
-        <div ref={anchorRef} />
+        </div>
       </section>
     </div>
   )
