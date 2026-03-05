@@ -126,3 +126,28 @@ export interface ChatMessage {
   deliveredAt?: number
   readAt?: number
 }
+
+export type Product = {
+  id: string
+  title: string
+  deliveryMethod: string
+  stockText: string
+  deliveryTimeText: string
+  category?: string
+  sellerDescription: string
+  commands: { cmd: string; description: string }[]
+}
+
+export type Review = {
+  id: string
+  createdAt: string
+  relativeLabel: string
+  productLabel: string
+  priceRub: number
+  rating: 1 | 2 | 3 | 4 | 5
+  text: string
+  sellerReply?: {
+    text: string
+    createdAt?: string
+  }
+}
