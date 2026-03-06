@@ -7,7 +7,7 @@ import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
 import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
-import { ChatPageLayout, ReportModal, type ReportReason } from '../components/chat/ChatLayout'
+import { ChatPageLayout, DetailsDrawer, ReportModal, type ReportReason } from '../components/chat/ChatLayout'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
 
 
@@ -1223,7 +1223,7 @@ export const OrderDetailsPage = () => {
         </ol>
       </Card>
 
-      <Link className="btn secondary" to={`/order/${order.id}/chat`}>Open order chat</Link>
+      <Link className="btn secondary" to={`/chats?orderId=${order.id}`}>Open order chat</Link>
 
       {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
       {isBuyer && <button className="btn" onClick={() => {
@@ -1238,408 +1238,12 @@ export const OrderDetailsPage = () => {
   )
 }
 
-export const ChatPage = () => {
-  const { orderId = '' } = useParams()
-  const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute, joinDisputeChat } = useApp()
-  const nav = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [draft, setDraft] = useState('')
-  const [reportOpen, setReportOpen] = useState(false)
-  const [reportReason, setReportReason] = useState<'not_received' | 'invalid' | 'restored_account' | 'other'>('not_received')
-  const [reportDetails, setReportDetails] = useState('')
-  const [attachedImage, setAttachedImage] = useState<string | undefined>()
-  const [expandedDescription, setExpandedDescription] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [reviewRating, setReviewRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null)
-  const [reviewText, setReviewText] = useState('')
-  const [reviewSubmitting, setReviewSubmitting] = useState(false)
-  const [reviewSubmitted, setReviewSubmitted] = useState(false)
-  const [hasExistingReview, setHasExistingReview] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const order = orders.find((o) => o.id === orderId)
-
-  if (!order) return <p>Order not found</p>
-
-  const offer = offers.find((item) => item.id === order.offerId)
-  const requestedDisputeId = searchParams.get('dispute') ?? ''
-  const activeDispute = disputes.find((item) => {
-    if (item.orderId !== order.id) return false
-    if (!requestedDisputeId) return ['opened', 'assigned_trainee', 'escalated_to_arb', 'escalated_to_senior'].includes(item.status)
-    return item.id === requestedDisputeId
-  })
-  const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const canModerateChat = isArbitrator && Boolean(activeDispute && isAssignedToStaff(activeDispute.assignedTo, user.id, user.username))
-  const isParticipant = user.id === order.buyerId || user.id === order.sellerId
-  const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
-  const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
-  const offerTitle = offer?.title ?? 'Custom order'
-  const offerDescription = offer?.description?.trim() || 'Contact seller before payment for fast processing.'
-  const orderStatusLabel = order.status.replace('_', ' ')
-  const peerId = user.id === order.sellerId ? order.buyerId : order.sellerId
-  const peerLabel = sender === 'buyer' ? `seller_${order.sellerId}` : `buyer_${order.buyerId}`
-  const blockStorageKey = `looton_block_peer_${user.id}_${peerId}`
-  const [peerBlocked, setPeerBlocked] = useState(() => localStorage.getItem(blockStorageKey) === '1')
-  const canLeaveReview = sender === 'buyer' && ['confirmed', 'auto_confirmed'].includes(order.status)
-  const showReviewComposer = canLeaveReview && !hasExistingReview && !reviewSubmitted
-
-  if (!canAccessChat) {
-    return (
-      <div className="stack">
-        <Card>
-          <h3>Chat access restricted</h3>
-          <p>This chat is available only to the assigned arbitrator (for staff) or to buyer/seller (for regular users).</p>
-          <Link className="btn" to={isArbitrator ? '/staff/queue' : '/orders'}>Go back</Link>
-        </Card>
-      </div>
-    )
-  }
-
-  const messages = chatMessages
-    .filter((m) => m.orderId === order.id)
-    .sort((a, b) => a.createdAt - b.createdAt)
-
-  const groupedMessages = useMemo(
-    () => messages.map((message, index) => {
-      const prev = messages[index - 1]
-      const next = messages[index + 1]
-      const isGroupable = message.sender !== 'system'
-      const withPrev = Boolean(
-        isGroupable &&
-        prev &&
-        prev.sender === message.sender &&
-        prev.sender !== 'system' &&
-        message.createdAt - prev.createdAt <= 5 * 60_000
-      )
-      const withNext = Boolean(
-        isGroupable &&
-        next &&
-        next.sender === message.sender &&
-        next.sender !== 'system' &&
-        next.createdAt - message.createdAt <= 5 * 60_000
-      )
-
-      return {
-        message,
-        isGroupStart: !withPrev,
-        isGroupEnd: !withNext
-      }
-    }),
-    [messages]
-  )
-
-  useEffect(() => {
-    if (!canModerateChat || !activeDispute) return
-    const alias = activeDispute.arbitratorAlias || `arb_${user.id}`
-    joinDisputeChat(activeDispute.id, alias)
-  }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
-
-  useEffect(() => {
-    const onClick = (event: MouseEvent) => {
-      if (!menuRef.current || !event.target) return
-      if (!menuRef.current.contains(event.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
-
-  useEffect(() => {
-    setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
-  }, [blockStorageKey])
-
-  useEffect(() => {
-    let active = true
-    if (!canLeaveReview || !offer) {
-      setHasExistingReview(false)
-      return () => {
-        active = false
-      }
-    }
-
-    const checkReview = async () => {
-      const exists = await productApi.hasReviewForOrder({ offerId: offer.id, orderId: order.id })
-      if (!active) return
-      setHasExistingReview(exists)
-    }
-
-    void checkReview()
-    return () => {
-      active = false
-    }
-  }, [canLeaveReview, offer, order.id])
-
-  const submitOrderReview = async () => {
-    if (!offer || !canLeaveReview) return
-    if (reviewRating === null) return
-    const text = reviewText.trim()
-    if (!text) return
-    setReviewSubmitting(true)
-    try {
-      await productApi.submitReview({
-        offerId: offer.id,
-        orderId: order.id,
-        productLabel: offerTitle,
-        amountTon: order.amountTon,
-        rating: reviewRating,
-        text
-      })
-      setReviewSubmitted(true)
-      setHasExistingReview(true)
-      setReviewText('')
-      setReviewRating(null)
-    } finally {
-      setReviewSubmitting(false)
-    }
-  }
-
-  const togglePeerBlock = () => {
-    const next = !peerBlocked
-    localStorage.setItem(blockStorageKey, next ? '1' : '0')
-    setPeerBlocked(next)
-    setMenuOpen(false)
-  }
-
-  const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
-    { value: 'not_received', label: 'Seller did not deliver the order' },
-    { value: 'invalid', label: 'Delivered item/service is invalid' },
-    { value: 'restored_account', label: 'Account was restored by original owner' },
-    { value: 'other', label: 'Other issue' }
-  ]
-
-  const getOwnMessageState = (message: ChatMessage, index: number): 'sent' | 'delivered' | 'read' => {
-    const nextForeignReply = messages.slice(index + 1).find((item) => item.sender !== message.sender && item.sender !== 'system')
-    if (nextForeignReply) return 'read'
-    if (Date.now() - message.createdAt > 15_000) return 'delivered'
-    return 'sent'
-  }
-
-  const readStateLabel: Record<'sent' | 'delivered' | 'read', string> = {
-    sent: 'Sent',
-    delivered: 'Delivered',
-    read: 'Read'
-  }
-
-  return (
-    <div className="order-chat-mobile">
-      <header className="product-header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
-        <h2>{offerTitle}</h2>
-        <div className="product-header-actions" />
-      </header>
-
-      <section className="product-block product-meta-grid">
-        <div><span>Delivery method</span><strong>{offer?.deliveryType ?? 'Manual'}</strong></div>
-        <div><span>Stock</span><strong>{offer?.stock ? `${offer.stock} units` : 'Available'}</strong></div>
-        <div><span>Delivery time</span><strong>{offer?.deliveryType === 'instant' ? '1 minute – 1 hour' : '5 minutes – 1 day'}</strong></div>
-        <div><span>Category</span><strong>{offer?.category ?? 'General'}</strong></div>
-      </section>
-
-      <div className="order-chat-layout">
-        <section className="product-block listing-panel">
-          <h3>Listing details</h3>
-          <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offerDescription}</p>
-          <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
-          <div className="listing-tags">
-            <span className="chip">{offer?.category ?? 'General'}</span>
-            <span className="chip">{offer?.deliveryType ?? 'manual'} delivery</span>
-            <span className="chip">Escrow protected</span>
-          </div>
-        </section>
-
-        <section className="seller-chat-screen">
-        <div className="seller-chat-top">
-          <div className="seller-chat-identity">
-            <span className="seller-avatar">{`S`}<span className="seller-avatar-presence" aria-hidden /></span>
-            <div>
-              <p className="seller-chat-name">seller_{order.sellerId}</p>
-              <p className="seller-chat-status">Online</p>
-            </div>
-          </div>
-          <div className="chat-menu-wrap" ref={menuRef}>
-            <button className="seller-chat-icons" aria-label="Chat menu" onClick={() => setMenuOpen((v) => !v)}><EllipsisVerticalIcon /></button>
-            {menuOpen && (
-              <div className="chat-menu card">
-                <button className="chat-menu-item" onClick={() => {
-                  setReportOpen(true)
-                  setMenuOpen(false)
-                }}>
-                  Open dispute
-                </button>
-                <button className="chat-menu-item danger" onClick={togglePeerBlock}>
-                  {peerBlocked ? 'Unblock user' : 'Block user'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="chat-messages">
-          {groupedMessages.length ? groupedMessages.map(({ message, isGroupStart, isGroupEnd }, index) => {
-            const isMine = (sender === 'buyer' && message.sender === 'buyer') || (sender === 'seller' && message.sender === 'seller') || (sender === 'arb' && message.sender === 'arb')
-            const ownState = isMine && message.sender !== 'system' ? getOwnMessageState(message, index) : undefined
-            const label = message.sender === 'system' ? 'System' : message.sender === 'buyer' ? `buyer_${order.buyerId}` : message.sender === 'seller' ? `seller_${order.sellerId}` : `Arbitrator ${message.arbAlias ?? ''}`.trim()
-            return (
-              <div key={message.id} className={`msg-row ${isMine ? 'mine' : ''} ${isGroupStart ? 'group-start' : 'group-middle'} ${isGroupEnd ? 'group-end' : ''}`}>
-                {!isMine && message.sender !== 'system' && (isGroupStart
-                  ? <span className="msg-avatar">{label[0]?.toUpperCase()}</span>
-                  : <span className="msg-avatar-spacer" aria-hidden />)}
-                <div className={`chat-bubble ${message.sender} ${isGroupStart ? 'group-start' : ''} ${isGroupEnd ? 'group-end' : ''}`}>
-                  {!isMine && message.sender !== 'system' && isGroupStart && <small className="msg-author">{label}</small>}
-                  {message.sender === 'system' && <small className="msg-author">{label}</small>}
-                  <p>{message.text}</p>
-                  {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="chat-attachment" />}
-                  <small className="msg-time">
-                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {ownState && (
-                      <span className={`msg-read msg-read-${ownState}`}>
-                        {ownState === 'sent' ? <CheckIcon className="msg-read-icon" /> : <CheckDoubleIcon className="msg-read-icon" />}
-                        {' '}
-                        {readStateLabel[ownState]}
-                      </span>
-                    )}
-                  </small>
-                </div>
-              </div>
-            )
-          }) : <div className="chat-empty-tip">No messages yet</div>}
-        </div>
-
-        {peerBlocked && !canModerateChat && (
-          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in menu to continue messaging.</div>
-        )}
-
-        {reportOpen && (
-          <div className="chat-report card">
-            <h4>Open dispute from chat report</h4>
-            <p>Select a reason for your appeal/dispute:</p>
-            <select className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as Dispute['reasonCode'])}>
-              {reportReasonOptions.map((reason) => (
-                <option key={reason.value} value={reason.value}>{reason.label}</option>
-              ))}
-            </select>
-            <textarea className="input" placeholder="Describe the problem in detail" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
-            <div className="chips">
-              <button className="chip active" onClick={() => {
-                if (!window.confirm(DISPUTE_POLICY)) return
-                const details = reportDetails.trim() || `Reason: ${reportReason}`
-                const dispute = openDispute(order.id, details, sender === 'seller' ? 'seller' : 'buyer', reportReason)
-                setReportOpen(false)
-                setReportDetails('')
-                nav(`/dispute/${dispute.id}`)
-              }}>Submit report</button>
-              <button className="chip" onClick={() => setReportOpen(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {showReviewComposer && (
-          <section className="chat-review-composer" aria-label="Leave seller review">
-            <h4>Order completed. Leave a review for {peerLabel}</h4>
-            <p>Your rating helps other buyers choose reliable sellers.</p>
-            <div className="chat-review-stars" role="radiogroup" aria-label="Choose a rating">
-              {([1, 2, 3, 4, 5] as const).map((value) => (
-                <button
-                  key={`review-star-${value}`}
-                  className={`icon-btn review-star-btn ${(reviewRating ?? 0) >= value ? 'active' : ''}`}
-                  type="button"
-                  aria-label={`Rate ${value} star${value > 1 ? 's' : ''}`}
-                  aria-pressed={(reviewRating ?? 0) >= value}
-                  onClick={() => setReviewRating(value)}
-                >
-                  <StarIcon />
-                </button>
-              ))}
-            </div>
-            <textarea
-              className="input"
-              placeholder="What did you like about this order?"
-              value={reviewText}
-              onChange={(event) => setReviewText(event.target.value)}
-              rows={3}
-            />
-            <button className="btn" type="button" disabled={reviewSubmitting || reviewRating === null || !reviewText.trim()} onClick={() => void submitOrderReview()}>
-              {reviewSubmitting ? 'Submitting review…' : 'Submit review'}
-            </button>
-          </section>
-        )}
-
-        {canLeaveReview && hasExistingReview && (
-          <div className="chat-review-success">Your review for this completed order is already published.</div>
-        )}
-
-        <div className="chat-input-bar">
-          <label className="icon-btn attach-btn" title="Attach file">
-            <svg className="icon icon-paperclip" aria-hidden><use href="#i-attach" /></svg>
-            <input
-              ref={fileInputRef}
-              className="file-input"
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (!file) return
-                const reader = new FileReader()
-                reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
-                reader.readAsDataURL(file)
-              }}
-            />
-          </label>
-          <div className="chat-input-wrap">
-            <textarea
-              className="input chat-input"
-              placeholder={peerBlocked ? `Unblock ${peerLabel} to continue chatting...` : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              rows={1}
-              disabled={peerBlocked && !canModerateChat}
-            />
-            {attachedImage && <small className="attach-hint">Image attached</small>}
-          </div>
-          <button
-            className="icon-btn send-btn"
-            aria-label="Send message"
-            disabled={(peerBlocked && !canModerateChat) || !draft.trim()}
-            onClick={() => {
-              if (peerBlocked && !canModerateChat) return
-              sendOrderMessage(
-                order.id,
-                sender,
-                draft,
-                sender === 'arb' ? (activeDispute?.arbitratorAlias || `arb_${user.id}`) : undefined,
-                attachedImage
-              )
-              setDraft('')
-              setAttachedImage(undefined)
-              if (fileInputRef.current) fileInputRef.current.value = ''
-            }}
-          >
-            <svg className="icon icon-send" aria-hidden><use href="#i-send" /></svg>
-          </button>
-        </div>
-        </section>
-
-        <aside className="product-block deal-summary">
-          <p className="deal-kicker">Escrow protection</p>
-          <h3>Secure deal</h3>
-          <ul className="deal-summary-list">
-            <li><span>Offer</span><strong className="deal-value" title={offerTitle}>{offerTitle}</strong></li>
-            <li><span>Description</span><strong className="deal-value" title={offerDescription}>{offerDescription}</strong></li>
-            <li><span>Amount</span><strong className="deal-amount">{order.amountTon} TON</strong></li>
-            <li><span>Status</span><strong className="deal-status-text">{orderStatusLabel}</strong></li>
-          </ul>
-          <div className="deal-summary-note"> Never transfer funds outside the platform.</div>
-        </aside>
-      </div>
-    </div>
-  )
-}
-
-
-
 export const MessagesPage = () => {
   const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute } = useApp()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const initialSelectedOrderId = searchParams.get('orderId')
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialSelectedOrderId)
   const [draft, setDraft] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1728,6 +1332,17 @@ export const MessagesPage = () => {
       setMenuOpen(false)
     }
   }, [threads, selectedOrderId])
+
+  useEffect(() => {
+    const fromQuery = searchParams.get('orderId')
+    if (!fromQuery) return
+    if (fromQuery !== selectedOrderId && threads.some((thread) => thread.order.id === fromQuery)) {
+      setSelectedOrderId(fromQuery)
+      setDetailsOpen(false)
+      setMenuOpen(false)
+      setReportOpen(false)
+    }
+  }, [searchParams, selectedOrderId, threads])
 
   useEffect(() => {
     if (!selectedThread || !blockStorageKey) {
@@ -1843,6 +1458,7 @@ export const MessagesPage = () => {
         selectedOrderId={selectedOrderId}
         onSelectThread={(orderId) => {
           setSelectedOrderId(orderId)
+          setSearchParams({ orderId })
           setDetailsOpen(false)
           setMenuOpen(false)
           setReportOpen(false)
@@ -1889,19 +1505,11 @@ export const MessagesPage = () => {
         }}
       />
 
-      {selectedThread && detailsOpen && (
-        <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
-          <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
-          <aside className="messages-details card">
-            <div className="messages-details-top">
-              <h3>Details</h3>
-              <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
-            </div>
-            <p className="messages-details-label">Description</p>
-            <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
-          </aside>
-        </div>
-      )}
+      <DetailsDrawer
+        open={Boolean(selectedThread && detailsOpen)}
+        description={selectedThread?.offer?.description ?? 'Seller description is not available for this order yet.'}
+        onClose={() => setDetailsOpen(false)}
+      />
 
       <ReportModal
         reportOpen={reportOpen}
@@ -2376,7 +1984,7 @@ export const StaffCasePage = () => {
       <div className="chips">
         <button className={`chip ${winner === 'buyer' ? 'active' : ''}`} onClick={() => setWinner('buyer')}>Buyer wins</button>
         <button className={`chip ${winner === 'seller' ? 'active' : ''}`} onClick={() => setWinner('seller')}>Seller wins</button>
-        <Link className="chip" to={`/order/${d.orderId}/chat?dispute=${d.id}`}>Join dispute chat</Link>
+        <Link className="chip" to={`/chats?orderId=${d.orderId}`}>Join dispute chat</Link>
       </div>
       <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} disabled={decisionLocked} />
       {!['senior_arb', 'admin'].includes(user.role) && !decisionLocked && (

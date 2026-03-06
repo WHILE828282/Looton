@@ -27,7 +27,31 @@ type HeaderProps = {
   onToggleBlock: () => void
 }
 
-const ChatHeader = ({ peer, isBlocked, menuOpen, detailsOpen, menuRef, onToggleMenu, onReport, onToggleBlock }: HeaderProps) => (
+type ReportModalProps = {
+  reportOpen: boolean
+  reportReason: ReportReason
+  reportReasons: Array<{ value: ReportReason; label: string }>
+  reportOtherReason: string
+  reportDetails: string
+  reportAttachment?: string
+  reportFileRef: RefObject<HTMLInputElement>
+  onClose: () => void
+  onReasonChange: (reason: ReportReason) => void
+  onOtherReasonChange: (value: string) => void
+  onDetailsChange: (value: string) => void
+  onReportFile: (event: ChangeEvent<HTMLInputElement>) => void
+  onOpenUpload: () => void
+  onRemoveAttachment: () => void
+  onSubmit: () => void
+}
+
+type DetailsDrawerProps = {
+  open: boolean
+  description: string
+  onClose: () => void
+}
+
+export const ChatHeader = ({ peer, isBlocked, menuOpen, detailsOpen, menuRef, onToggleMenu, onReport, onToggleBlock }: HeaderProps) => (
   <header className="messages-chat-head">
     <div>
       <strong>{peer}</strong>
@@ -52,7 +76,7 @@ const ChatHeader = ({ peer, isBlocked, menuOpen, detailsOpen, menuRef, onToggleM
   </header>
 )
 
-const SystemMessageCard = ({ message, systemType }: { message: ChatMessage; systemType: string }) => (
+export const SystemMessage = ({ message, systemType }: { message: ChatMessage; systemType: string }) => (
   <div className="messages-bubble-wrap system-wrap">
     <div className={`messages-bubble system-${systemType}`}>
       <span className="messages-system-icon"><ShieldIcon /></span>
@@ -62,6 +86,32 @@ const SystemMessageCard = ({ message, systemType }: { message: ChatMessage; syst
   </div>
 )
 
+export const MessageBubble = ({
+  message,
+  isMine,
+  senderLabel
+}: {
+  message: ChatMessage
+  isMine: boolean
+  senderLabel: string
+}) => {
+  const ownState = isMine ? (Date.now() - message.createdAt > 120000 ? 'read' : 'delivered') : null
+
+  return (
+    <div className={`messages-bubble-wrap ${isMine ? 'mine' : ''}`}>
+      {!isMine && <p className="messages-sender-name">{senderLabel}</p>}
+      <div className={`messages-bubble ${message.sender}`}>
+        <p>{message.text}</p>
+        <small>
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {ownState === 'delivered' && <CheckIcon className="msg-state-icon" />}
+          {ownState === 'read' && <CheckDoubleIcon className="msg-state-icon" />}
+        </small>
+      </div>
+    </div>
+  )
+}
+
 type MessagesViewportProps = {
   messages: ChatMessage[]
   sender: ChatMessage['sender']
@@ -70,31 +120,16 @@ type MessagesViewportProps = {
   trimSystemPrefix: (value: string) => string
 }
 
-const MessagesViewport = ({ messages, sender, senderLabel, getSystemType, trimSystemPrefix }: MessagesViewportProps) => (
+export const MessagesViewport = ({ messages, sender, senderLabel, getSystemType, trimSystemPrefix }: MessagesViewportProps) => (
   <div className="messages-chat-scroll">
     <div className="messages-list-viewport">
       {messages.length ? messages.map((message) => {
         if (message.sender === 'system') {
           const text = trimSystemPrefix(message.text)
-          return <SystemMessageCard key={message.id} message={{ ...message, text }} systemType={getSystemType(text)} />
+          return <SystemMessage key={message.id} message={{ ...message, text }} systemType={getSystemType(text)} />
         }
 
-        const isMine = message.sender === sender
-        const ownState = isMine ? (Date.now() - message.createdAt > 120000 ? 'read' : 'delivered') : null
-
-        return (
-          <div key={message.id} className={`messages-bubble-wrap ${isMine ? 'mine' : ''}`}>
-            {!isMine && <p className="messages-sender-name">{senderLabel(message)}</p>}
-            <div className={`messages-bubble ${message.sender}`}>
-              <p>{message.text}</p>
-              <small>
-                {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                {ownState === 'delivered' && <CheckIcon className="msg-state-icon" />}
-                {ownState === 'read' && <CheckDoubleIcon className="msg-state-icon" />}
-              </small>
-            </div>
-          </div>
-        )
+        return <MessageBubble key={message.id} message={message} isMine={message.sender === sender} senderLabel={senderLabel(message)} />
       }) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
     </div>
   </div>
@@ -115,7 +150,7 @@ type ComposerOverlayProps = {
   onSend: () => void
 }
 
-const ComposerOverlay = ({ composerFileRef, draft, attachedImage, isBlocked, isArbitrator, canSend, onDraftChange, onDraftInput, onComposerFile, onOpenComposerFile, onRemoveAttachment, onSend }: ComposerOverlayProps) => (
+export const ComposerOverlay = ({ composerFileRef, draft, attachedImage, isBlocked, isArbitrator, canSend, onDraftChange, onDraftInput, onComposerFile, onOpenComposerFile, onRemoveAttachment, onSend }: ComposerOverlayProps) => (
   <div className="messages-composer-overlay">
     <div className="messages-composer">
       <input ref={composerFileRef} className="file-input" type="file" accept="image/*" onChange={onComposerFile} />
@@ -216,24 +251,6 @@ const ConversationsColumn = ({ threads, selectedOrderId, onSelectThread }: Conve
   </aside>
 )
 
-type ReportModalProps = {
-  reportOpen: boolean
-  reportReason: ReportReason
-  reportReasons: Array<{ value: ReportReason; label: string }>
-  reportOtherReason: string
-  reportDetails: string
-  reportAttachment?: string
-  reportFileRef: RefObject<HTMLInputElement>
-  onClose: () => void
-  onReasonChange: (reason: ReportReason) => void
-  onOtherReasonChange: (value: string) => void
-  onDetailsChange: (value: string) => void
-  onReportFile: (event: ChangeEvent<HTMLInputElement>) => void
-  onOpenUpload: () => void
-  onRemoveAttachment: () => void
-  onSubmit: () => void
-}
-
 export const ReportModal = ({ reportOpen, reportReason, reportReasons, reportOtherReason, reportDetails, reportAttachment, reportFileRef, onClose, onReasonChange, onOtherReasonChange, onDetailsChange, onReportFile, onOpenUpload, onRemoveAttachment, onSubmit }: ReportModalProps) => {
   if (!reportOpen) return null
 
@@ -269,6 +286,24 @@ export const ReportModal = ({ reportOpen, reportReason, reportReasons, reportOth
 
         <button className="btn" type="button" disabled={!reportDetails.trim() || (reportReason === 'other' && !reportOtherReason.trim())} onClick={onSubmit}>Submit report</button>
       </section>
+    </div>
+  )
+}
+
+export const DetailsDrawer = ({ open, description, onClose }: DetailsDrawerProps) => {
+  if (!open) return null
+
+  return (
+    <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
+      <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={onClose} />
+      <aside className="messages-details card">
+        <div className="messages-details-top">
+          <h3>Details</h3>
+          <button className="icon-btn" type="button" aria-label="Close details" onClick={onClose}><EllipsisVerticalIcon /></button>
+        </div>
+        <p className="messages-details-label">Description</p>
+        <div className="messages-details-description">{description}</div>
+      </aside>
     </div>
   )
 }
