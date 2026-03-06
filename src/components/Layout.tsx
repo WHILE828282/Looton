@@ -49,6 +49,7 @@ export const Layout = () => {
   const isOfferScreen = location.pathname.startsWith('/offer/')
   const isOrderChatScreen = /^\/order\/[^/]+\/chat\/?$/.test(location.pathname) || (location.pathname.startsWith('/order/') && location.pathname.includes('/chat'))
   const isFullscreenScreen = isOfferScreen || isOrderChatScreen
+  const isMessagesScreen = location.pathname === '/chats' || location.pathname.startsWith('/chats/')
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const tabs = isArbitrator ? arbTabs : userTabs
@@ -71,7 +72,7 @@ export const Layout = () => {
             <h1 className="topbar-title">Looton Market</h1>
           </div>
           <div className="topbar-actions">
-            <Link className="topbar-badge" to="/chats">Chat</Link>
+            {!isMessagesScreen && <Link className="topbar-badge" to="/chats">Chat</Link>}
             <span className="topbar-badge topbar-balance"><span>Balance:</span><TonIcon className="topbar-ton-icon" /><span>{user.depositTon.toFixed(2)}</span></span>
           </div>
         </header>

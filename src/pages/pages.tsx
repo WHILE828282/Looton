@@ -1636,9 +1636,13 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, disputes, chatMessages } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const [query, setQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'support'>('all')
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+
+  const toEnglishSafe = (value: string) => /[А-Яа-яЁё]/.test(value) ? 'Message available' : value
 
   const accessibleOrders = orders.filter((order) => {
     if (!isArbitrator) {
@@ -1652,7 +1656,7 @@ export const MessagesPage = () => {
     )
   })
 
-  const relatedOrders = accessibleOrders
+  const threads = accessibleOrders
     .map((order) => {
       const offer = offers.find((item) => item.id === order.offerId)
       const orderDispute = disputes.find((dispute) =>
@@ -1664,46 +1668,71 @@ export const MessagesPage = () => {
         .filter((message) => message.orderId === order.id)
         .sort((a, b) => b.createdAt - a.createdAt)
       const latestMessage = orderMessages[0]
-      const chatLink = orderDispute ? `/order/${order.id}/chat?dispute=${orderDispute.id}` : `/order/${order.id}/chat`
+      const unreadCount = latestMessage && Date.now() - latestMessage.createdAt < 2 * 60 * 60 * 1000 ? 1 : 0
 
       return {
         order,
-        title: offer?.title ?? order.offerId,
-        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `User ${peerId}`,
-        preview: latestMessage?.text ?? 'No messages yet',
-        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—',
-        chatLink
+        offer,
+        dispute: orderDispute,
+        title: offer?.title ?? 'Order chat',
+        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `Seller ${peerId}`,
+        preview: toEnglishSafe(latestMessage?.text ?? 'No messages yet'),
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
+        unreadCount,
+        hasSupport: Boolean(orderDispute)
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
 
-  const sideFilters = [
-    { key: 'all', label: 'All', icon: '●' },
-    { key: 'new', label: 'New', icon: '◔' },
-    { key: 'orders', label: 'Orders', icon: '◼' },
-    { key: 'support', label: 'Support', icon: '?' }
+  const visibleThreads = threads.filter((thread) => {
+    if (activeFilter === 'new') return thread.unreadCount > 0
+    if (activeFilter === 'support') return thread.hasSupport
+    return true
+  })
+
+  useEffect(() => {
+    if (!visibleThreads.length) {
+      setSelectedOrderId(null)
+      return
+    }
+    if (!selectedOrderId || !visibleThreads.some((thread) => thread.order.id === selectedOrderId)) {
+      setSelectedOrderId(visibleThreads[0].order.id)
+    }
+  }, [visibleThreads, selectedOrderId])
+
+  const selectedThread = visibleThreads.find((thread) => thread.order.id === selectedOrderId) ?? null
+
+  const selectedMessages = selectedThread
+    ? chatMessages
+      .filter((message) => message.orderId === selectedThread.order.id)
+      .sort((a, b) => a.createdAt - b.createdAt)
+    : []
+
+  const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : selectedThread?.order.sellerId === user.id ? 'seller' : 'buyer'
+
+  const submitMessage = () => {
+    if (!selectedThread || !draft.trim()) return
+    sendOrderMessage(selectedThread.order.id, sender, draft)
+    setDraft('')
+  }
+
+  const filterItems: Array<{ key: 'all' | 'new' | 'support'; label: string; icon: string }> = [
+    { key: 'all', label: 'All', icon: '◉' },
+    { key: 'new', label: 'New', icon: '◌' },
+    { key: 'support', label: 'Support', icon: '◍' }
   ]
 
   return (
     <div className="messages-center">
-      <header className="messages-topbar">
-        <div className="messages-brand">Looton</div>
-        <div className="messages-search-wrap">
-          <SearchIcon />
-          <input className="input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
-        </div>
-        <nav className="messages-top-nav" aria-label="Marketplace navigation">
-          <button className="btn ghost" type="button">Purchases</button>
-          <button className="btn ghost" type="button">Sales</button>
-          <button className="btn ghost active" type="button">Messages</button>
-          <button className="btn ghost" type="button">Wallet</button>
-        </nav>
-      </header>
-
       <section className="messages-shell">
         <aside className="messages-left-menu card" aria-label="Conversation filters">
-          {sideFilters.map((item, index) => (
-            <button key={item.key} type="button" className={`messages-filter-btn ${index === 0 ? 'active' : ''}`}>
+          {filterItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`messages-filter-btn ${activeFilter === item.key ? 'active' : ''}`}
+              onClick={() => setActiveFilter(item.key)}
+            >
               <span aria-hidden>{item.icon}</span>
               <small>{item.label}</small>
             </button>
@@ -1713,30 +1742,74 @@ export const MessagesPage = () => {
         <aside className="messages-list card" aria-label="Conversation list">
           <div className="messages-list-head">
             <strong>Telegram notifications</strong>
-            <button className="btn ghost" type="button">On</button>
+            <small>{visibleThreads.length} chats</small>
           </div>
 
-          {relatedOrders.length ? relatedOrders.map((item, index) => (
-            <article key={item.order.id} className={`messages-thread ${index === 0 ? 'active' : ''}`}>
-              <div className="messages-thread-avatar">{item.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
-              <div className="messages-thread-meta">
-                <div className="messages-thread-row">
-                  <strong>{item.peer}</strong>
-                  <small>{new Date(item.order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</small>
-                </div>
-                <p>{item.preview}</p>
-                <div className="messages-thread-row">
-                  <small>{item.title}</small>
-                  <span className="messages-unread">{Math.max(1, Math.min(9, Math.floor(item.preview.length / 18)))}</span>
-                </div>
-                <Link className="messages-open-link" to={item.chatLink}>Order support</Link>
-              </div>
-            </article>
-          )) : <p className="muted">{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet.'}</p>}
+          <div className="messages-list-scroll">
+            {visibleThreads.length ? visibleThreads.map((thread) => {
+              const isActive = thread.order.id === selectedOrderId
+              return (
+                <button
+                  key={thread.order.id}
+                  type="button"
+                  className={`messages-thread ${isActive ? 'active' : ''}`}
+                  onClick={() => setSelectedOrderId(thread.order.id)}
+                >
+                  <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
+                  <div className="messages-thread-meta">
+                    <div className="messages-thread-row">
+                      <strong>{thread.peer}</strong>
+                      <small>{thread.time}</small>
+                    </div>
+                    <p>{thread.preview}</p>
+                    <div className="messages-thread-row">
+                      <small>{thread.title}</small>
+                      {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
+                    </div>
+                  </div>
+                </button>
+              )
+            }) : <p className="muted">No conversations yet.</p>}
+          </div>
         </aside>
 
-        <section className="messages-chat card" aria-label="Chat preview panel">
-          <div className="messages-empty-pill">Select a chat to start messaging</div>
+        <section className="messages-chat card" aria-label="Chat panel">
+          {!selectedThread ? (
+            <div className="messages-empty-pill">Select a chat to start messaging</div>
+          ) : (
+            <div className="messages-chat-grid">
+              <article className="messages-chat-main">
+                <header className="messages-chat-head">
+                  <div>
+                    <strong>{selectedThread.peer}</strong>
+                    <small>Online</small>
+                  </div>
+                  <button className="icon-btn" type="button" aria-label="More options"><EllipsisVerticalIcon /></button>
+                </header>
+
+                <div className="messages-chat-scroll">
+                  {selectedMessages.length ? selectedMessages.map((message) => (
+                    <div key={message.id} className={`messages-bubble ${message.sender}`}>
+                      <p>{toEnglishSafe(message.text)}</p>
+                      <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                    </div>
+                  )) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
+                </div>
+
+                <div className="messages-composer">
+                  <button className="icon-btn" type="button" aria-label="Attach file"><span aria-hidden>⎔</span></button>
+                  <input className="input" placeholder="Write a message..." value={draft} onChange={(event) => setDraft(event.target.value)} />
+                  <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim()} onClick={submitMessage}><SendIcon /></button>
+                </div>
+              </article>
+
+              <aside className="messages-details card">
+                <h3>Details</h3>
+                <p className="messages-details-label">Description</p>
+                <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
+              </aside>
+            </div>
+          )}
         </section>
       </section>
     </div>
