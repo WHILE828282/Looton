@@ -3,18 +3,18 @@ import { Link } from 'react-router-dom'
 import { Card } from '../components/Card'
 
 const FAQ_SECTIONS = [
-  '📜 Looton Platform Rules',
-  '⚠️ Confirmation popup before completing an order',
-  '⚠️ Warning popup before canceling a dispute',
-  '📜 Terms of Service (legal-style)',
-  '📜 Seller Agreement',
-  '📜 Arbitration Rules'
+  'Looton Platform Rules',
+  'Confirmation popup before completing an order',
+  'Warning popup before canceling a dispute',
+  'Terms of Service (legal-style)',
+  'Seller Agreement',
+  'Arbitration Rules'
 ] as const
 
 const getFaqSectionContent = (section: (typeof FAQ_SECTIONS)[number]) => {
   const content: Record<(typeof FAQ_SECTIONS)[number], string> = {
-  '📜 Looton Platform Rules': LOOTON_PLATFORM_RULES,
-  '⚠️ Confirmation popup before completing an order': `Title: Confirm Order Completion
+  'Looton Platform Rules': LOOTON_PLATFORM_RULES,
+  'Confirmation popup before completing an order': `Title: Confirm Order Completion
 
 Body:
 You are about to mark this order as Completed.
@@ -27,7 +27,7 @@ Payment is released to the seller.
 
 You may lose the ability to dispute this order.
 
-✅ Confirm ONLY if you have:
+ Confirm ONLY if you have:
 
 received the item/service in full,
 
@@ -35,7 +35,7 @@ verified access/ownership (accounts/keys/subscriptions),
 
 checked that everything matches the listing.
 
-❌ Do NOT confirm if:
+ Do NOT confirm if:
 
 delivery is pending,
 
@@ -46,7 +46,7 @@ you were asked to confirm “in advance”.
 If something is wrong, open a Dispute and wait for arbitration.
 
 Buttons: Cancel / Confirm`,
-  '⚠️ Warning popup before canceling a dispute': `Title: Cancel Dispute
+  'Warning popup before canceling a dispute': `Title: Cancel Dispute
 
 Body:
 Canceling a dispute is a serious action.
@@ -61,11 +61,11 @@ escrow may be released according to the current order state,
 
 reopening may be impossible.
 
-❌ If the order is not fully delivered, DO NOT cancel.
+ If the order is not fully delivered, DO NOT cancel.
 Wait for the assigned arbitrator and provide evidence.
 
 Buttons: Keep Dispute / Cancel Dispute`,
-  '📜 Terms of Service (legal-style)': `📜 Looton Terms of Service (Short, Dense)
+  'Terms of Service (legal-style)': ` Looton Terms of Service (Short, Dense)
 1) Platform Role
 
 Looton is a marketplace infrastructure (Telegram Mini App) providing listings, escrow, payouts, and dispute resolution. Looton is not the seller and does not guarantee the quality, legality, or availability of user-listed goods.
@@ -101,7 +101,7 @@ Looton may issue warnings, limit features, suspend accounts, freeze funds for in
 9) Changes
 
 Looton may update rules and ToS. Continued use means acceptance of the latest version.`,
-  '📜 Seller Agreement': `📜 Seller Agreement (Short, Dense)
+  'Seller Agreement': ` Seller Agreement (Short, Dense)
 1) Seller Duties
 
 Sellers must deliver exactly what is listed: correct item/service, correct quantity, correct timeframe. Sellers must communicate reasonably and provide proof of delivery when asked.
@@ -129,7 +129,7 @@ Looton may offer faster payouts for sellers with a maintained deposit. Withdrawi
 7) Sanctions
 
 Looton may remove listings, restrict selling, disable instant payouts, hold withdrawals for review, or ban accounts for violations.`,
-  '📜 Arbitration Rules': `⚖️ Arbitration Rules (Short, Dense, Your System)
+  'Arbitration Rules': ` Arbitration Rules (Short, Dense, Your System)
 1) Arbitration Levels
 
 Looton uses 3 levels:
@@ -231,7 +231,7 @@ Looton may override decisions only in exceptional cases (platform safety, proven
   return content[section]
 }
 
-const LOOTON_PLATFORM_RULES = `📜 Looton Platform Rules
+const LOOTON_PLATFORM_RULES = `Looton Platform Rules
 
 1. General Provisions
 
@@ -611,19 +611,19 @@ export const ProfileSupportPage = () => (
       <h3>Support center</h3>
       <p>Select what you need:</p>
       <div className="row">
-        <strong>📝 Write a complaint</strong>
+        <strong>Write a complaint</strong>
         <small>Open a complaint ticket ›</small>
       </div>
       <Link className="row" to="/disputes">
-        <strong>⚖️ Disputes</strong>
+        <strong>Disputes</strong>
         <small>Open disputes section ›</small>
       </Link>
       <div className="row">
-        <strong>💬 Contact support</strong>
+        <strong>Contact support</strong>
         <small>Start support chat ›</small>
       </div>
       <Link className="row" to="/profile/support/faq">
-        <strong>❓ FAQ</strong>
+        <strong>FAQ</strong>
         <small>Read common questions ›</small>
       </Link>
     </Card>
