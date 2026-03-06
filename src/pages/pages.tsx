@@ -6,7 +6,7 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, EllipsisVerticalIcon, MoonIcon, SearchIcon, SendIcon, StarIcon } from '../icons1/UiIcons'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, WalletIcon } from '../icons1/UiIcons'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
 
@@ -492,11 +492,11 @@ const isAssignedToStaff = (assignedTo: string | undefined, userId: number, usern
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
 const PROFILE_SETTINGS_PRIMARY = [
-  { icon: '', label: 'Language', value: 'English' },
-  { icon: '', label: 'Wallet currency', value: 'USD' },
-  { icon: '', label: 'Timezone', value: 'UTC+3' },
-  { icon: '', label: 'Theme', value: 'Auto' },
-  { icon: '', label: 'Exchange settings', value: 'Open' }
+  { icon: 'language', label: 'Language', value: 'English' },
+  { icon: 'wallet', label: 'Wallet currency', value: 'USD' },
+  { icon: 'time', label: 'Timezone', value: 'UTC+3' },
+  { icon: 'theme', label: 'Theme', value: 'Auto' },
+  { icon: 'settings', label: 'Exchange settings', value: 'Open' }
 ] as const
 
 const PROFILE_LEGAL_LINKS = [
@@ -505,6 +505,14 @@ const PROFILE_LEGAL_LINKS = [
   'Terms of Use',
   'Website Usage Rules'
 ] as const
+
+const settingsIconMap = {
+  language: GlobeIcon,
+  wallet: WalletIcon,
+  time: ClockIcon,
+  theme: MoonIcon,
+  settings: SettingsIcon
+} as const
 
 const iconCandidates = (src: string) => {
   const normalized = src.trim()
@@ -837,7 +845,7 @@ export const OffersPage = () => {
 const StarRating = ({ rating }: { rating: NonNullable<ProductChatMessage['rating']> }) => (
   <div className="chat-stars" aria-label={`Rating ${rating} out of 5`}>
     {Array.from({ length: 5 }).map((_, index) => (
-      <span key={index} className={index < rating ? 'active' : ''}></span>
+      <StarIcon key={index} className={index < rating ? 'active' : ''} />
     ))}
   </div>
 )
@@ -967,6 +975,21 @@ export const OfferDetailsPage = () => {
     return formatChatDayLabel(messages[index - 1].createdAt) !== formatChatDayLabel(messages[index].createdAt)
   }
 
+  const conversationMessages = useMemo(
+    () => messages.filter((message) => !message.rating && !message.orderMeta),
+    [messages]
+  )
+
+  const reviewMessages = useMemo(
+    () => messages.filter((message) => Boolean(message.rating || message.orderMeta)),
+    [messages]
+  )
+
+  const showConversationDaySeparator = (index: number) => {
+    if (index === 0) return true
+    return formatChatDayLabel(conversationMessages[index - 1].createdAt) !== formatChatDayLabel(conversationMessages[index].createdAt)
+  }
+
   const onSend = () => {
     const text = chatInput.trim()
     if (!text) return
@@ -1030,15 +1053,15 @@ export const OfferDetailsPage = () => {
             </button>
           )}
 
-          {!messages.length && (
+          {!conversationMessages.length && (
             <div className="chat-empty-tip">Message seller before payment</div>
           )}
 
-          {messages.map((message, index) => {
-            const compact = index > 0 && messages[index - 1].author === message.author
+          {conversationMessages.map((message, index) => {
+            const compact = index > 0 && conversationMessages[index - 1].author === message.author
             return (
               <div key={message.id}>
-                {showDaySeparator(index) && (
+                {showConversationDaySeparator(index) && (
                   <div className="chat-day-separator">
                     <span>{formatChatDayLabel(message.createdAt)}</span>
                   </div>
@@ -1061,6 +1084,17 @@ export const OfferDetailsPage = () => {
             <SendIcon />
           </button>
         </div>
+      </section>
+
+      <section className="product-block product-reviews">
+        <h3>Reviews</h3>
+        {reviewMessages.length ? reviewMessages.map((message) => (
+          <article className="review-item" key={`review-${message.id}`}>
+            {message.rating && <StarRating rating={message.rating} />}
+            {message.orderMeta && <p className="chat-order-meta">{message.orderMeta.productLabel}, {message.orderMeta.priceRub} ₽</p>}
+            <p className="chat-message-text">{message.text}</p>
+          </article>
+        )) : <p className="muted">No reviews yet.</p>}
       </section>
     </div>
   )
@@ -1391,7 +1425,7 @@ export const ChatPage = () => {
         </div>
 
         {peerBlocked && !canModerateChat && (
-          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in chat menu to continue messaging.</div>
+          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in menu to continue messaging.</div>
         )}
 
         {reportOpen && (
@@ -1864,7 +1898,7 @@ export const ProfilePage = () => {
         <h3>Settings</h3>
         {PROFILE_SETTINGS_PRIMARY.map((item) => (
           <div className="row" key={item.label}>
-            <strong>{item.icon} {item.label}</strong>
+            <strong>{(() => { const Icon = settingsIconMap[item.icon]; return <><Icon className="settings-row-icon" /> {item.label}</> })()}</strong>
             <small>{item.value} ›</small>
           </div>
         ))}

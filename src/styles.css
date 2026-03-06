@@ -1333,16 +1333,6 @@ textarea.input{
     position: sticky;
     top: 76px;
   }
-
-  .order-chat-layout .seller-chat-screen{
-    height: min(680px, 76vh);
-  }
-
-  .order-chat-layout > .product-block,
-  .order-chat-layout > .deal-summary{
-    position: sticky;
-    top: 76px;
-  }
 }
 
 @media (max-width: 960px){
@@ -1573,10 +1563,37 @@ textarea.input{
   border-radius: 14px;
 }
 
-@media (max-width: 960px){
-  .order-chat-layout{
-    grid-template-columns: 1fr;
-  }
+.inline-star-icon{ width: 13px; height: 13px; display:inline-block; vertical-align:-2px; margin-right:3px; color: #facc15; }
+
+.settings-row-icon{
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  color: rgba(255,255,255,0.78);
+}
+
+.product-reviews{
+  gap: 10px;
+}
+
+.review-item{
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.chat-stars svg{
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,0.25);
+}
+
+.chat-stars .active{
+  color: #facc15;
 }
 
 /* Portals / Telegram mini app visual restyle for order chat screen (UI-only) */
