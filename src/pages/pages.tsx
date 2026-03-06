@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
@@ -6,7 +6,7 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
+import { ArrowLeftIcon, AttachmentIcon, BlockIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, ReportIcon, SearchIcon, SendArrowIcon, SendIcon, SettingsIcon, ShieldIcon, StarIcon, TonIcon, UnblockIcon, WalletIcon } from '../icons1/UiIcons'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
 
 
@@ -1636,19 +1636,33 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, disputes, chatMessages, sendOrderMessage } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState<Dispute['reasonCode']>('not_received')
+  const [reportDetails, setReportDetails] = useState('')
+  const [reportOtherReason, setReportOtherReason] = useState('')
+  const [attachedImage, setAttachedImage] = useState<string | undefined>()
+  const [reportAttachment, setReportAttachment] = useState<string | undefined>()
+  const [peerBlocked, setPeerBlocked] = useState(false)
+  const composerFileRef = useRef<HTMLInputElement | null>(null)
+  const reportFileRef = useRef<HTMLInputElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
 
-  const toEnglishSafe = (value: string) => /[А-Яа-яЁё]/.test(value) ? 'Message available' : value
+  const normalizeText = (value: string) => {
+    const englishSafe = /[А-Яа-яЁё]/.test(value) ? 'Message available' : value
+    return englishSafe
+      .replace(/[✅⚖️⚠️📌🔒🛡️]/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim() || 'Message available'
+  }
 
   const accessibleOrders = orders.filter((order) => {
-    if (!isArbitrator) {
-      return order.buyerId === user.id || order.sellerId === user.id
-    }
-
+    if (!isArbitrator) return order.buyerId === user.id || order.sellerId === user.id
     return disputes.some((dispute) =>
       dispute.orderId === order.id &&
       isAssignedToStaff(dispute.assignedTo, user.id, user.username) &&
@@ -1674,31 +1688,17 @@ export const MessagesPage = () => {
         order,
         offer,
         dispute: orderDispute,
+        peerId,
         title: offer?.title ?? 'Order chat',
         peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `Seller ${peerId}`,
-        preview: toEnglishSafe(latestMessage?.text ?? 'No messages yet'),
+        preview: normalizeText(latestMessage?.text ?? 'No messages yet'),
         time: latestMessage ? new Date(latestMessage.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
-        unreadCount,
-        hasSupport: Boolean(orderDispute)
+        unreadCount
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
 
-  const visibleThreads = threads
-
-  useEffect(() => {
-    if (!visibleThreads.length) {
-      setSelectedOrderId(null)
-      setDetailsOpen(false)
-      return
-    }
-    if (!selectedOrderId || !visibleThreads.some((thread) => thread.order.id === selectedOrderId)) {
-      setSelectedOrderId(visibleThreads[0].order.id)
-      setDetailsOpen(false)
-    }
-  }, [visibleThreads, selectedOrderId])
-
-  const selectedThread = visibleThreads.find((thread) => thread.order.id === selectedOrderId) ?? null
+  const selectedThread = threads.find((thread) => thread.order.id === selectedOrderId) ?? null
 
   const selectedMessages = selectedThread
     ? chatMessages
@@ -1708,11 +1708,130 @@ export const MessagesPage = () => {
 
   const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : selectedThread?.order.sellerId === user.id ? 'seller' : 'buyer'
 
+  const blockStorageKey = selectedThread ? `looton_msg_block_${user.id}_${selectedThread.peerId}` : ''
+
+  useEffect(() => {
+    if (!threads.length) {
+      setSelectedOrderId(null)
+      setDetailsOpen(false)
+      return
+    }
+    if (!selectedOrderId || !threads.some((thread) => thread.order.id === selectedOrderId)) {
+      setSelectedOrderId(threads[0].order.id)
+      setDetailsOpen(false)
+      setMenuOpen(false)
+    }
+  }, [threads, selectedOrderId])
+
+  useEffect(() => {
+    if (!selectedThread || !blockStorageKey) {
+      setPeerBlocked(false)
+      return
+    }
+    setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
+  }, [selectedThread, blockStorageKey])
+
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!menuRef.current || !event.target) return
+      if (!menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
   const submitMessage = () => {
-    if (!selectedThread || !draft.trim()) return
-    sendOrderMessage(selectedThread.order.id, sender, draft)
+    if (!selectedThread || !draft.trim() || peerBlocked) return
+    sendOrderMessage(
+      selectedThread.order.id,
+      sender,
+      draft,
+      sender === 'arb' ? (selectedThread.dispute?.arbitratorAlias || `arb_${user.id}`) : undefined,
+      attachedImage
+    )
     setDraft('')
+    setAttachedImage(undefined)
+    if (composerFileRef.current) composerFileRef.current.value = ''
   }
+
+  const senderLabel = (message: ChatMessage) => {
+    if (!selectedThread) return 'User'
+    if (message.sender === 'buyer') return `Buyer ${selectedThread.order.buyerId}`
+    if (message.sender === 'seller') return `Seller ${selectedThread.order.sellerId}`
+    if (message.sender === 'arb') return selectedThread.dispute?.arbitratorAlias || 'Arbitrator'
+    return 'Looton system'
+  }
+
+  const openComposerFile = () => composerFileRef.current?.click()
+
+  const onComposerFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
+    reader.readAsDataURL(file)
+  }
+
+  const onReportFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setReportAttachment(typeof reader.result === 'string' ? reader.result : undefined)
+    reader.readAsDataURL(file)
+  }
+
+  const submitReport = () => {
+    if (!selectedThread) return
+    if (!reportDetails.trim()) return
+    if (reportReason === 'other' && !reportOtherReason.trim()) return
+
+    const reasonLabelMap: Record<Dispute['reasonCode'], string> = {
+      not_received: 'Seller did not complete the order',
+      invalid: 'Wrong item delivered',
+      restored_account: 'Fraud / suspicious behavior',
+      other: reportOtherReason.trim() || 'Other'
+    }
+
+    const reportPayload = [
+      `Report reason: ${reasonLabelMap[reportReason]}`,
+      `Description: ${reportDetails.trim()}`,
+      reportAttachment ? 'Screenshot attached.' : ''
+    ].filter(Boolean).join('\n')
+
+    openDispute(selectedThread.order.id, reportPayload, sender === 'seller' ? 'seller' : 'buyer', reportReason)
+    setReportOpen(false)
+    setMenuOpen(false)
+    setReportReason('not_received')
+    setReportDetails('')
+    setReportOtherReason('')
+    setReportAttachment(undefined)
+    if (reportFileRef.current) reportFileRef.current.value = ''
+  }
+
+  const toggleBlockPeer = () => {
+    if (!selectedThread || !blockStorageKey) return
+    const next = !peerBlocked
+    setPeerBlocked(next)
+    localStorage.setItem(blockStorageKey, next ? '1' : '0')
+    setMenuOpen(false)
+  }
+
+  const getSystemType = (text: string) => {
+    const normalized = normalizeText(text).toLowerCase()
+    if (normalized.includes('payment') || normalized.includes('secured')) return 'payment'
+    if (normalized.includes('joined')) return 'joined'
+    if (normalized.includes('dispute opened')) return 'opened'
+    if (normalized.includes('dispute') || normalized.includes('arbitrator')) return 'dispute'
+    if (normalized.includes('confirmed')) return 'confirmed'
+    return 'system'
+  }
+
+  const reportReasons = [
+    { value: 'not_received' as const, label: 'Seller did not complete the order' },
+    { value: 'invalid' as const, label: 'Wrong item delivered' },
+    { value: 'restored_account' as const, label: 'Fraud / suspicious behavior' },
+    { value: 'other' as const, label: 'Other' }
+  ]
 
   return (
     <div className="messages-center">
@@ -1720,11 +1839,11 @@ export const MessagesPage = () => {
         <aside className="messages-list card" aria-label="Conversation list">
           <div className="messages-list-head">
             <strong>Messages</strong>
-            <small>{visibleThreads.length} chats</small>
+            <small>{threads.length} chats</small>
           </div>
 
           <div className="messages-list-scroll">
-            {visibleThreads.length ? visibleThreads.map((thread) => {
+            {threads.length ? threads.map((thread) => {
               const isActive = thread.order.id === selectedOrderId
               return (
                 <button
@@ -1734,6 +1853,7 @@ export const MessagesPage = () => {
                   onClick={() => {
                     setSelectedOrderId(thread.order.id)
                     setDetailsOpen(false)
+                    setMenuOpen(false)
                   }}
                 >
                   <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
@@ -1763,31 +1883,62 @@ export const MessagesPage = () => {
                 <header className="messages-chat-head">
                   <div>
                     <strong>{selectedThread.peer}</strong>
-                    <small>Online</small>
+                    <small>{peerBlocked ? 'Blocked' : 'Online'}</small>
                   </div>
-                  <button className="btn details-toggle-btn" type="button" onClick={() => setDetailsOpen(true)}>Details</button>
+                  <div className="messages-head-actions" ref={menuRef}>
+                    <button className="btn details-toggle-btn" type="button" onClick={() => setDetailsOpen(true)}>Details</button>
+                    <button className="icon-btn" type="button" aria-label="Chat actions" onClick={() => setMenuOpen((prev) => !prev)}><EllipsisVerticalIcon /></button>
+
+                    {menuOpen && (
+                      <div className="messages-menu card" role="menu" aria-label="Chat actions menu">
+                        <button type="button" className="messages-menu-item" onClick={() => { setReportOpen(true); setMenuOpen(false) }}>
+                          <ReportIcon />
+                          <span>Report</span>
+                        </button>
+                        <button type="button" className="messages-menu-item" onClick={toggleBlockPeer}>
+                          {peerBlocked ? <UnblockIcon /> : <BlockIcon />}
+                          <span>{peerBlocked ? 'Unblock user' : 'Block user'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </header>
 
                 <div className="messages-chat-scroll">
-                  {selectedMessages.length ? selectedMessages.map((message) => (
-                    <div key={message.id} className={`messages-bubble ${message.sender}`}>
-                      <p>{toEnglishSafe(message.text)}</p>
-                      <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
-                    </div>
-                  )) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
+                  {selectedMessages.length ? selectedMessages.map((message) => {
+                    const messageText = normalizeText(message.text)
+                    const isMine = message.sender === sender
+                    const isSystem = message.sender === 'system'
+                    const ownState = isMine && !isSystem ? (Date.now() - message.createdAt > 120000 ? 'read' : 'delivered') : null
+                    const systemType = isSystem ? getSystemType(messageText) : null
+                    const canSend = !peerBlocked || isArbitrator
+
+                    return (
+                      <div key={message.id} className={`messages-bubble-wrap ${isMine ? 'mine' : ''}`}>
+                        <p className="messages-sender-name">{senderLabel(message)}</p>
+                        <div className={`messages-bubble ${message.sender} ${systemType ? `system-${systemType}` : ''}`}>
+                          {isSystem && <span className="messages-system-icon"><ShieldIcon /></span>}
+                          <p>{messageText}</p>
+                          <small>
+                            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {ownState === 'delivered' && <CheckIcon className="msg-state-icon" />}
+                            {ownState === 'read' && <CheckDoubleIcon className="msg-state-icon" />}
+                          </small>
+                        </div>
+                        {!canSend && isMine && <small className="messages-meta-note">You blocked this user.</small>}
+                      </div>
+                    )
+                  }) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
                 </div>
 
                 <div className="messages-composer">
-                  <button
-                    className="icon-btn"
-                    type="button"
-                    aria-label="Attach file"
-                    onClick={() => setDraft((prev) => prev ? `${prev} [Attachment]` : '[Attachment]')}
-                  >
-                    <span aria-hidden>⎔</span>
-                  </button>
-                  <input className="input" placeholder="Write a message..." value={draft} onChange={(event) => setDraft(event.target.value)} />
-                  <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim()} onClick={submitMessage}><SendIcon /></button>
+                  <input ref={composerFileRef} className="file-input" type="file" accept="image/*" onChange={onComposerFile} />
+                  <button className="icon-btn" type="button" aria-label="Attach file" onClick={openComposerFile}><AttachmentIcon /></button>
+                  <div className="messages-compose-input-wrap">
+                    <input className="input" placeholder={peerBlocked ? 'Unblock user to continue messaging...' : 'Write a message...'} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={peerBlocked && !isArbitrator} />
+                    {attachedImage && <small className="attach-hint">Attachment added</small>}
+                  </div>
+                  <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim() || (peerBlocked && !isArbitrator)} onClick={submitMessage}><SendArrowIcon /></button>
                 </div>
               </article>
 
@@ -1802,6 +1953,36 @@ export const MessagesPage = () => {
                     <p className="messages-details-label">Description</p>
                     <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
                   </aside>
+                </div>
+              )}
+
+              {reportOpen && (
+                <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Report user">
+                  <button className="messages-details-backdrop" type="button" aria-label="Close report" onClick={() => setReportOpen(false)} />
+                  <section className="messages-report card">
+                    <div className="messages-details-top">
+                      <h3>Report</h3>
+                      <button className="icon-btn" type="button" aria-label="Close report" onClick={() => setReportOpen(false)}><EllipsisVerticalIcon /></button>
+                    </div>
+
+                    <label className="messages-details-label" htmlFor="report-reason">Report reason</label>
+                    <select id="report-reason" className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as Dispute['reasonCode'])}>
+                      {reportReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+                    </select>
+
+                    {reportReason === 'other' && (
+                      <textarea className="input" rows={2} placeholder="Explain the issue" value={reportOtherReason} onChange={(event) => setReportOtherReason(event.target.value)} />
+                    )}
+
+                    <label className="messages-details-label" htmlFor="report-description">Description</label>
+                    <textarea id="report-description" className="input" rows={4} placeholder="Describe the issue" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
+
+                    <input ref={reportFileRef} className="file-input" type="file" accept="image/*" onChange={onReportFile} />
+                    <button className="btn secondary messages-report-attach" type="button" onClick={() => reportFileRef.current?.click()}><AttachmentIcon /> Attach screenshot</button>
+                    {reportAttachment && <small className="attach-hint">Screenshot attached</small>}
+
+                    <button className="btn" type="button" disabled={!reportDetails.trim() || (reportReason === 'other' && !reportOtherReason.trim())} onClick={submitReport}>Submit report</button>
+                  </section>
                 </div>
               )}
             </div>
