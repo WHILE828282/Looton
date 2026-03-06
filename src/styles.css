@@ -1,4 +1,4 @@
-/* ✅ Portals-like TRUE BLACK + GLASS (NO BLUE)
+/*  Portals-like TRUE BLACK + GLASS (NO BLUE)
    - Fully resolved (no merge markers)
    - Black/graphite palette like your screenshots
    - Glass surfaces with blur where appropriate
@@ -100,7 +100,7 @@ body::before{
 
 .topbar-title{
   margin: 2px 0 0;
-  font-size: 30px;
+  font-size: 21px;
   font-weight: 800;
   line-height: 1.08;
 }
@@ -779,6 +779,12 @@ textarea.input{
 .msg-read-delivered{ color: rgba(255,255,255,0.62); }
 .msg-read-read{ color: rgba(255,255,255,0.82); }
 
+.msg-read-icon{
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+}
+
 .chat-attachment{
   width: 100%;
   max-width: 220px;
@@ -923,6 +929,16 @@ textarea.input{
   gap: 8px;
   border-radius: var(--radius-item);
 }
+
+.chat-menu-item.danger{
+  border-color: rgba(248,113,113,0.35);
+  color: #fecaca;
+}
+.chat-menu-item.danger:hover{
+  border-color: rgba(248,113,113,0.55);
+  background: rgba(127,29,29,0.35);
+}
+
 .product-page{
   max-width: 760px;
   margin: 0 auto;
@@ -1024,6 +1040,7 @@ textarea.input{
 
 .seller-chat-identity{ display:flex; align-items:center; gap:10px; }
 .seller-avatar{
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: 999px;
@@ -1031,6 +1048,17 @@ textarea.input{
   place-items:center;
   font-weight: 700;
   background: rgba(255,255,255,.1);
+}
+
+.seller-avatar-presence{
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #22c55e;
+  border: 2px solid #11141c;
 }
 
 .seller-chat-name{ margin:0; font-size: 16px; font-weight: 700; line-height:1.05; }
@@ -1041,6 +1069,11 @@ textarea.input{
   background: transparent;
   color: rgba(255,255,255,.65);
   font-size: 20px;
+}
+
+.seller-chat-icons svg{
+  width: 18px;
+  height: 18px;
 }
 
 .chat-messages{
@@ -1067,6 +1100,49 @@ textarea.input{
   place-items:center;
   color: rgba(255,255,255,.46);
   text-align:center;
+}
+
+
+.seller-trust-card{
+  min-height: 260px;
+  align-content: center;
+  gap: 10px;
+  color: rgba(255,255,255,.72);
+}
+
+.seller-trust-stars{
+  display: inline-flex;
+  gap: 8px;
+}
+
+.seller-trust-stars svg{
+  width: 26px;
+  height: 26px;
+  color: rgba(148,163,184,0.5);
+}
+
+.seller-trust-stars .active{
+  color: #20d36f;
+}
+
+.seller-trust-reviews{
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #4f8bff;
+}
+
+.seller-trust-metric{
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  color: rgba(255,255,255,0.88);
+}
+
+.seller-trust-tip{
+  margin: 6px 0 0;
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.58);
 }
 
 .chat-day-separator{
@@ -1155,10 +1231,108 @@ textarea.input{
 }
 
 .order-chat-mobile{
-  width: min(430px, 100%);
+  width: min(1200px, 100%);
   margin: 0 auto;
   display: grid;
   gap: 12px;
+}
+
+.order-chat-layout{
+  display: grid;
+  gap: 12px;
+}
+
+.listing-panel{
+  align-content: start;
+}
+
+.listing-tags{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.listing-tags .chip{
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+}
+
+.deal-summary{
+  align-content: start;
+  background: linear-gradient(180deg, rgba(20,24,35,0.94), rgba(15,17,26,0.98));
+  border-color: rgba(87,160,255,0.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.deal-kicker{
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(143,199,255,0.9);
+}
+
+.deal-summary-list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.deal-summary-list li{
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.deal-summary-list li:last-child{
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.deal-summary-list span{
+  color: rgba(255,255,255,0.58);
+  font-size: 13px;
+}
+
+.deal-summary-list strong{
+  line-height: 1.35;
+}
+
+.deal-value{
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.deal-amount{
+  font-size: 22px;
+  color: #d7ecff;
+}
+
+.deal-status-text{
+  text-transform: capitalize;
+  color: #9df4c7;
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(157,244,199,0.42);
+  background: rgba(157,244,199,0.12);
+}
+
+.deal-summary-note{
+  margin: 8px 0 0;
+  color: rgba(255,255,255,0.86);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  font-size: 14px;
 }
 
 .order-chat-mobile .product-header{
@@ -1185,6 +1359,282 @@ textarea.input{
 
 @media (min-width: 700px){
   .order-chat-mobile{
-    width: min(460px, calc(100vw - 40px));
+    width: min(1200px, calc(100vw - 40px));
   }
+
+  .order-chat-layout{
+    grid-template-columns: minmax(240px, 0.9fr) minmax(420px, 1.8fr) minmax(220px, 0.9fr);
+    align-items: start;
+  }
+
+  .order-chat-layout .seller-chat-screen{
+    height: min(680px, 76vh);
+  }
+
+  .order-chat-layout > .product-block,
+  .order-chat-layout > .deal-summary{
+    position: sticky;
+    top: 76px;
+  }
+}
+
+@media (max-width: 960px){
+  .order-chat-layout{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Portals / Telegram mini app visual restyle for order chat screen (UI-only) */
+.order-chat-mobile{
+  --pm-bg: #0b1220;
+  --pm-card: #111827;
+  --pm-card-elev: #0f172a;
+  --pm-border: #1f2937;
+  --pm-text: #f9fafb;
+  --pm-muted: #9ca3af;
+  --pm-accent: #3b82f6;
+  --pm-amber-bg: #2a1f12;
+  --pm-amber-border: #6b4d1f;
+  --pm-amber-text: #f6d28b;
+  color: var(--pm-text);
+}
+
+.order-chat-mobile .product-header{
+  background: linear-gradient(180deg, rgba(11,18,32,.96), rgba(11,18,32,.78), transparent);
+}
+
+.order-chat-mobile .product-header h2{
+  font-size: clamp(30px, 3vw, 42px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.order-chat-mobile .product-block,
+.order-chat-mobile .seller-chat-screen{
+  border-radius: 18px;
+  border: 1px solid var(--pm-border);
+  background: linear-gradient(180deg, rgba(17,24,39,.95), rgba(15,23,42,.96));
+  box-shadow: 0 10px 28px rgba(2,8,23,.42), inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.order-chat-mobile .product-meta-grid{
+  padding: 18px 20px;
+  gap: 18px;
+  background: linear-gradient(180deg, rgba(17,24,39,.95), rgba(15,23,42,.9));
+}
+
+.order-chat-mobile .product-meta-grid span{
+  color: var(--pm-muted);
+  font-size: 13px;
+  letter-spacing: .01em;
+}
+
+.order-chat-mobile .product-meta-grid strong{
+  color: var(--pm-text);
+  font-size: 30px;
+  font-weight: 750;
+}
+
+.order-chat-mobile .listing-panel h3,
+.order-chat-mobile .deal-summary h3{
+  color: var(--pm-text);
+  letter-spacing: -0.01em;
+}
+
+.order-chat-mobile .seller-description{
+  color: #d1d5db;
+  line-height: 1.48;
+}
+
+.order-chat-mobile .text-btn,
+.order-chat-mobile .more-btn{
+  border-radius: 14px;
+  border: 1px solid var(--pm-border);
+  background: rgba(17,24,39,.88);
+  color: #e5e7eb;
+  transition: all .22s ease;
+}
+
+.order-chat-mobile .text-btn:hover,
+.order-chat-mobile .more-btn:hover{
+  border-color: rgba(59,130,246,.45);
+  background: rgba(30,41,59,.88);
+  box-shadow: 0 0 0 1px rgba(59,130,246,.15) inset;
+}
+
+.order-chat-mobile .listing-tags .chip{
+  border-radius: 999px;
+  border: 1px solid rgba(156,163,175,.36);
+  background: rgba(17,24,39,.86);
+  color: #e5e7eb;
+  padding: 8px 13px;
+  font-weight: 600;
+}
+
+.order-chat-mobile .seller-chat-screen{
+  background: linear-gradient(180deg, rgba(14,22,38,.96), rgba(9,14,26,.98));
+}
+
+.order-chat-mobile .seller-chat-top{
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(31,41,55,.9);
+  background: linear-gradient(180deg, rgba(17,24,39,.96), rgba(15,23,42,.93));
+}
+
+.order-chat-mobile .seller-avatar{
+  border: 1px solid rgba(148,163,184,.24);
+  background: rgba(30,41,59,.72);
+}
+
+.order-chat-mobile .seller-chat-name{ color: var(--pm-text); }
+.order-chat-mobile .seller-chat-status{ color: #4ade80; }
+
+.order-chat-mobile .seller-chat-icons{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,.25);
+  background: rgba(15,23,42,.62);
+  display: grid;
+  place-items: center;
+  transition: all .22s ease;
+}
+
+.order-chat-mobile .seller-chat-icons:hover{
+  border-color: rgba(59,130,246,.45);
+  background: rgba(30,41,59,.85);
+}
+
+.order-chat-mobile .chat-messages{
+  background: radial-gradient(circle at 50% -10%, rgba(59,130,246,.06), transparent 54%), #0b1220;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,.48) transparent;
+}
+
+.order-chat-mobile .chat-messages::-webkit-scrollbar{ width: 7px; }
+.order-chat-mobile .chat-messages::-webkit-scrollbar-track{ background: transparent; }
+.order-chat-mobile .chat-messages::-webkit-scrollbar-thumb{
+  background: rgba(148,163,184,.45);
+  border-radius: 999px;
+}
+
+.order-chat-mobile .chat-bubble{
+  border: 1px solid rgba(71,85,105,.42);
+  background: rgba(17,24,39,.9);
+  box-shadow: 0 8px 18px rgba(2,8,23,.32);
+}
+
+.order-chat-mobile .msg-row.mine .chat-bubble{
+  border-color: rgba(59,130,246,.34);
+  background: linear-gradient(180deg, rgba(30,41,59,.95), rgba(17,24,39,.94));
+}
+
+.order-chat-mobile .chat-bubble p{ color: #f3f4f6; }
+.order-chat-mobile .msg-author{ color: #cbd5e1; font-size: 12px; }
+.order-chat-mobile .msg-time{ color: #94a3b8; }
+
+.order-chat-mobile .chat-bubble.system{
+  border-color: var(--pm-amber-border);
+  background: linear-gradient(180deg, rgba(42,31,18,.95), rgba(37,28,17,.95));
+  color: var(--pm-amber-text);
+  box-shadow: inset 0 1px 0 rgba(245,158,11,.16);
+  padding: 10px 12px;
+}
+
+.order-chat-mobile .chat-bubble.system p,
+.order-chat-mobile .chat-bubble.system .msg-author,
+.order-chat-mobile .chat-bubble.system .msg-time{ color: var(--pm-amber-text); }
+
+.order-chat-mobile .chat-input-bar{
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(31,41,55,.9);
+  background: linear-gradient(180deg, rgba(11,18,32,.74), rgba(11,18,32,.98) 34%);
+}
+
+.order-chat-mobile .chat-input{
+  border-radius: 14px;
+  border: 1px solid rgba(71,85,105,.52);
+  background: rgba(15,23,42,.86);
+  color: #f3f4f6;
+}
+
+.order-chat-mobile .chat-input::placeholder{ color: #94a3b8; }
+
+.order-chat-mobile .chat-input-bar .icon-btn,
+.order-chat-mobile .chat-send-btn{
+  border: 1px solid rgba(71,85,105,.54);
+  background: linear-gradient(180deg, rgba(30,41,59,.88), rgba(17,24,39,.96));
+  box-shadow: 0 8px 18px rgba(2,8,23,.3);
+  transition: all .2s ease;
+}
+
+.order-chat-mobile .chat-input-bar .icon-btn:hover,
+.order-chat-mobile .chat-send-btn:hover{
+  border-color: rgba(59,130,246,.42);
+  box-shadow: 0 0 0 1px rgba(59,130,246,.2) inset, 0 10px 20px rgba(2,8,23,.35);
+}
+
+.order-chat-mobile .deal-summary{
+  background: linear-gradient(180deg, rgba(15,23,42,.98), rgba(15,23,42,.92));
+  border-color: rgba(59,130,246,.32);
+}
+
+.order-chat-mobile .deal-kicker{ color: #93c5fd; }
+
+.order-chat-mobile .deal-summary-list span{ color: var(--pm-muted); }
+.order-chat-mobile .deal-summary-list strong{ color: var(--pm-text); }
+.order-chat-mobile .deal-summary-list li{ border-bottom: 1px solid rgba(31,41,55,.95); }
+
+.order-chat-mobile .deal-amount{ color: #dbeafe; font-size: 30px; font-weight: 800; }
+
+.order-chat-mobile .deal-status-text{
+  border-color: rgba(74,222,128,.45);
+  background: rgba(22,101,52,.28);
+  color: #86efac;
+}
+
+.order-chat-mobile .deal-summary-note{
+  border-color: rgba(71,85,105,.62);
+  background: rgba(17,24,39,.72);
+  color: #e5e7eb;
+}
+
+.order-chat-mobile .chat-warning{
+  border-color: rgba(245,158,11,.42);
+  background: rgba(42,31,18,.92);
+  color: var(--pm-amber-text);
+  border-radius: 14px;
+}
+
+.inline-star-icon{ width: 13px; height: 13px; display:inline-block; vertical-align:-2px; margin-right:3px; color: #facc15; }
+
+.settings-row-icon{
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  color: rgba(255,255,255,0.78);
+}
+
+.product-reviews{
+  gap: 10px;
+}
+
+.review-item{
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.chat-stars svg{
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,0.25);
+}
+
+.chat-stars .active{
+  color: #facc15;
 }
