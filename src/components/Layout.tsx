@@ -2,7 +2,7 @@ import { useMemo, type ReactElement } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 import { SvgSprite } from '../icons/SvgSprite'
-import { ChatsIcon, DisputesIcon, MarketIcon, OrdersIcon, ProfileIcon, QueueIcon, SellIcon } from '../icons1/UiIcons'
+import { ChatsIcon, DisputesIcon, MarketIcon, OrdersIcon, ProfileIcon, QueueIcon, SellIcon, TonIcon } from '../icons1/UiIcons'
 
 type IconName = 'market' | 'orders' | 'sell' | 'profile' | 'disputes' | 'queue' | 'chats'
 
@@ -72,7 +72,7 @@ export const Layout = () => {
           </div>
           <div className="topbar-actions">
             <Link className="topbar-badge" to="/chats">Chat</Link>
-            <span className="topbar-badge">Balance: {user.depositTon.toFixed(2)} TON</span>
+            <span className="topbar-badge topbar-balance"><span>Balance:</span><TonIcon className="topbar-ton-icon" /><span>{user.depositTon.toFixed(2)}</span></span>
           </div>
         </header>
       )}
