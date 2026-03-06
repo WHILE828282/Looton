@@ -21,7 +21,7 @@ type HeaderProps = {
   isBlocked: boolean
   menuOpen: boolean
   detailsOpen: () => void
-  menuRef: RefObject<HTMLDivElement | null>
+  menuRef: RefObject<HTMLDivElement>
   onToggleMenu: () => void
   onReport: () => void
   onToggleBlock: () => void
@@ -101,7 +101,7 @@ const MessagesViewport = ({ messages, sender, senderLabel, getSystemType, trimSy
 )
 
 type ComposerOverlayProps = {
-  composerFileRef: RefObject<HTMLInputElement | null>
+  composerFileRef: RefObject<HTMLInputElement>
   draft: string
   attachedImage?: string
   isBlocked: boolean
@@ -223,7 +223,7 @@ type ReportModalProps = {
   reportOtherReason: string
   reportDetails: string
   reportAttachment?: string
-  reportFileRef: RefObject<HTMLInputElement | null>
+  reportFileRef: RefObject<HTMLInputElement>
   onClose: () => void
   onReasonChange: (reason: ReportReason) => void
   onOtherReasonChange: (value: string) => void

@@ -1256,7 +1256,7 @@ export const ChatPage = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
   const [hasExistingReview, setHasExistingReview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1649,9 +1649,9 @@ export const MessagesPage = () => {
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const [reportAttachment, setReportAttachment] = useState<string | undefined>()
   const [peerBlocked, setPeerBlocked] = useState(false)
-  const composerFileRef = useRef<HTMLInputElement | null>(null)
-  const reportFileRef = useRef<HTMLInputElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const composerFileRef = useRef<HTMLInputElement>(null)
+  const reportFileRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const [reportReason, setReportReason] = useState<ReportReason>('not_completed')
 
