@@ -68,7 +68,7 @@ export const Layout = () => {
       {!isFullscreenScreen && (
         <header className="topbar">
           <div>
-            <p className="topbar-eyebrow">secure gaming marketplace</p>
+            <p className="topbar-eyebrow">Trade without limits, secured by Web3</p>
             <h1 className="topbar-title">Looton Market</h1>
           </div>
           <div className="topbar-actions">

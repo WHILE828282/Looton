@@ -1638,9 +1638,9 @@ export const ChatPage = () => {
 export const MessagesPage = () => {
   const { user, orders, offers, disputes, chatMessages, sendOrderMessage } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'support'>('all')
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const toEnglishSafe = (value: string) => /[А-Яа-яЁё]/.test(value) ? 'Message available' : value
 
@@ -1684,19 +1684,17 @@ export const MessagesPage = () => {
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
 
-  const visibleThreads = threads.filter((thread) => {
-    if (activeFilter === 'new') return thread.unreadCount > 0
-    if (activeFilter === 'support') return thread.hasSupport
-    return true
-  })
+  const visibleThreads = threads
 
   useEffect(() => {
     if (!visibleThreads.length) {
       setSelectedOrderId(null)
+      setDetailsOpen(false)
       return
     }
     if (!selectedOrderId || !visibleThreads.some((thread) => thread.order.id === selectedOrderId)) {
       setSelectedOrderId(visibleThreads[0].order.id)
+      setDetailsOpen(false)
     }
   }, [visibleThreads, selectedOrderId])
 
@@ -1716,32 +1714,12 @@ export const MessagesPage = () => {
     setDraft('')
   }
 
-  const filterItems: Array<{ key: 'all' | 'new' | 'support'; label: string; icon: string }> = [
-    { key: 'all', label: 'All', icon: '◉' },
-    { key: 'new', label: 'New', icon: '◌' },
-    { key: 'support', label: 'Support', icon: '◍' }
-  ]
-
   return (
     <div className="messages-center">
       <section className="messages-shell">
-        <aside className="messages-left-menu card" aria-label="Conversation filters">
-          {filterItems.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`messages-filter-btn ${activeFilter === item.key ? 'active' : ''}`}
-              onClick={() => setActiveFilter(item.key)}
-            >
-              <span aria-hidden>{item.icon}</span>
-              <small>{item.label}</small>
-            </button>
-          ))}
-        </aside>
-
         <aside className="messages-list card" aria-label="Conversation list">
           <div className="messages-list-head">
-            <strong>Telegram notifications</strong>
+            <strong>Messages</strong>
             <small>{visibleThreads.length} chats</small>
           </div>
 
@@ -1753,7 +1731,10 @@ export const MessagesPage = () => {
                   key={thread.order.id}
                   type="button"
                   className={`messages-thread ${isActive ? 'active' : ''}`}
-                  onClick={() => setSelectedOrderId(thread.order.id)}
+                  onClick={() => {
+                    setSelectedOrderId(thread.order.id)
+                    setDetailsOpen(false)
+                  }}
                 >
                   <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
                   <div className="messages-thread-meta">
@@ -1784,7 +1765,7 @@ export const MessagesPage = () => {
                     <strong>{selectedThread.peer}</strong>
                     <small>Online</small>
                   </div>
-                  <button className="icon-btn" type="button" aria-label="More options"><EllipsisVerticalIcon /></button>
+                  <button className="btn details-toggle-btn" type="button" onClick={() => setDetailsOpen(true)}>Details</button>
                 </header>
 
                 <div className="messages-chat-scroll">
@@ -1797,17 +1778,32 @@ export const MessagesPage = () => {
                 </div>
 
                 <div className="messages-composer">
-                  <button className="icon-btn" type="button" aria-label="Attach file"><span aria-hidden>⎔</span></button>
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    aria-label="Attach file"
+                    onClick={() => setDraft((prev) => prev ? `${prev} [Attachment]` : '[Attachment]')}
+                  >
+                    <span aria-hidden>⎔</span>
+                  </button>
                   <input className="input" placeholder="Write a message..." value={draft} onChange={(event) => setDraft(event.target.value)} />
                   <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim()} onClick={submitMessage}><SendIcon /></button>
                 </div>
               </article>
 
-              <aside className="messages-details card">
-                <h3>Details</h3>
-                <p className="messages-details-label">Description</p>
-                <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
-              </aside>
+              {detailsOpen && (
+                <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
+                  <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
+                  <aside className="messages-details card">
+                    <div className="messages-details-top">
+                      <h3>Details</h3>
+                      <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
+                    </div>
+                    <p className="messages-details-label">Description</p>
+                    <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
+                  </aside>
+                </div>
+              )}
             </div>
           )}
         </section>
