@@ -990,6 +990,11 @@ export const OfferDetailsPage = () => {
     return formatChatDayLabel(conversationMessages[index - 1].createdAt) !== formatChatDayLabel(conversationMessages[index].createdAt)
   }
 
+  const shouldShowSellerTrustCard = conversationMessages.length === 0
+  const sellerPreviewStars = Math.max(1, Math.min(5, Math.round(currentOffer?.sellerStats.rating ?? 5)))
+  const sellerReviewCount = reviewMessages.length
+  const sellerCompletionRate = Math.max(90, Math.min(100, Math.round(((currentOffer?.sellerStats.rating ?? 5) / 5) * 1000) / 10))
+
   const onSend = () => {
     const text = chatInput.trim()
     if (!text) return
@@ -1053,8 +1058,17 @@ export const OfferDetailsPage = () => {
             </button>
           )}
 
-          {!conversationMessages.length && (
-            <div className="chat-empty-tip">Message seller before payment</div>
+          {shouldShowSellerTrustCard && (
+            <div className="chat-empty-tip seller-trust-card" role="note" aria-live="polite">
+              <div className="seller-trust-stars" aria-label={`Seller rating ${sellerPreviewStars} out of 5`}>
+                {Array.from({ length: 5 }).map((_, index) => <StarIcon key={`trust-star-${index}`} className={index < sellerPreviewStars ? 'active' : ''} />)}
+              </div>
+              <p className="seller-trust-reviews">
+                {sellerReviewCount ? `${sellerReviewCount} reviews from buyers` : 'Trusted seller profile'}
+              </p>
+              <p className="seller-trust-metric">{sellerCompletionRate.toFixed(1)}% completed orders</p>
+              <p className="seller-trust-tip">Message seller before payment</p>
+            </div>
           )}
 
           {conversationMessages.map((message, index) => {

@@ -1102,6 +1102,49 @@ textarea.input{
   text-align:center;
 }
 
+
+.seller-trust-card{
+  min-height: 260px;
+  align-content: center;
+  gap: 10px;
+  color: rgba(255,255,255,.72);
+}
+
+.seller-trust-stars{
+  display: inline-flex;
+  gap: 8px;
+}
+
+.seller-trust-stars svg{
+  width: 26px;
+  height: 26px;
+  color: rgba(148,163,184,0.5);
+}
+
+.seller-trust-stars .active{
+  color: #20d36f;
+}
+
+.seller-trust-reviews{
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #4f8bff;
+}
+
+.seller-trust-metric{
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  color: rgba(255,255,255,0.88);
+}
+
+.seller-trust-tip{
+  margin: 6px 0 0;
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.58);
+}
+
 .chat-day-separator{
   display: flex;
   justify-content: center;
@@ -1317,6 +1360,27 @@ textarea.input{
 @media (min-width: 700px){
   .order-chat-mobile{
     width: min(1200px, calc(100vw - 40px));
+  }
+
+  .order-chat-layout{
+    grid-template-columns: minmax(240px, 0.9fr) minmax(420px, 1.8fr) minmax(220px, 0.9fr);
+    align-items: start;
+  }
+
+  .order-chat-layout .seller-chat-screen{
+    height: min(680px, 76vh);
+  }
+
+  .order-chat-layout > .product-block,
+  .order-chat-layout > .deal-summary{
+    position: sticky;
+    top: 76px;
+  }
+}
+
+@media (max-width: 960px){
+  .order-chat-layout{
+    grid-template-columns: 1fr;
   }
 
   .order-chat-layout{
@@ -1577,25 +1641,6 @@ textarea.input{
   gap: 10px;
 }
 
-.review-item{
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.03);
-  padding: 10px 12px;
-  display: grid;
-  gap: 6px;
-}
-
-.chat-stars svg{
-  width: 14px;
-  height: 14px;
-  color: rgba(255,255,255,0.25);
-}
-
-.chat-stars .active{
-  color: #facc15;
-}
-
 /* Portals / Telegram mini app visual restyle for order chat screen (UI-only) */
 .order-chat-mobile{
   --pm-bg: #0b1220;
@@ -1819,3 +1864,34 @@ textarea.input{
 }
 
 .inline-star-icon{ width: 13px; height: 13px; display:inline-block; vertical-align:-2px; margin-right:3px; color: #facc15; }
+
+.settings-row-icon{
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  color: rgba(255,255,255,0.78);
+}
+
+.product-reviews{
+  gap: 10px;
+}
+
+.review-item{
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.chat-stars svg{
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,0.25);
+}
+
+.chat-stars .active{
+  color: #facc15;
+}
