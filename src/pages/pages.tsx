@@ -8,6 +8,21 @@ import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
+
+const IconBase = ({ children }: { children: ReactElement | ReactElement[] }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    {children}
+  </svg>
+)
+
+const ArrowLeftIcon = () => <IconBase><path d="m15 18-6-6 6-6" /><path d="M21 12H9" /></IconBase>
+const SearchIcon = () => <IconBase><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></IconBase>
+const MoonIcon = () => <IconBase><path d="M12 3a7.5 7.5 0 1 0 9 9A9 9 0 1 1 12 3" /></IconBase>
+const EllipsisVerticalIcon = () => <IconBase><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></IconBase>
+const SendIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+const CheckIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m20 6-11 11-5-5" /></svg>
+const CheckDoubleIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m18 7-8 8-4-4" /><path d="m22 7-8 8" /></svg>
+
 type SellForm = {
   gameId: string
   category: OfferCategory
@@ -990,12 +1005,12 @@ export const OfferDetailsPage = () => {
   return (
     <div className="product-page">
       <header className="product-header">
-        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back">←</button>
+        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
         <h2>{currentOffer?.title ?? product.title}</h2>
         <div className="product-header-actions">
-          <button className="icon-btn" aria-label="Search">⌕</button>
-          <button className="icon-btn" aria-label="Theme">☾</button>
-          <button className="icon-btn" aria-label="Menu">☰</button>
+          <button className="icon-btn" aria-label="Search"><SearchIcon /></button>
+          <button className="icon-btn" aria-label="Theme"><MoonIcon /></button>
+          <button className="icon-btn" aria-label="Menu"><EllipsisVerticalIcon /></button>
         </div>
       </header>
 
@@ -1017,7 +1032,7 @@ export const OfferDetailsPage = () => {
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
-          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+          <button className="seller-chat-icons" aria-label="Chat menu"><EllipsisVerticalIcon /></button>
         </div>
 
         <div className="chat-messages" ref={messagesRef}>
@@ -1047,6 +1062,7 @@ export const OfferDetailsPage = () => {
           })}
         </div>
 
+
         <div className="chat-input-bar">
           <input
             className="input chat-offer-input"
@@ -1055,7 +1071,7 @@ export const OfferDetailsPage = () => {
             placeholder="Write a message..."
           />
           <button className="btn chat-send-btn" type="button" onClick={onSend} disabled={!chatInput.trim()}>
-            ➤
+            <SendIcon />
           </button>
         </div>
       </section>
@@ -1184,7 +1200,9 @@ export const ChatPage = () => {
   const [reportDetails, setReportDetails] = useState('')
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const [expandedDescription, setExpandedDescription] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1201,6 +1219,13 @@ export const ChatPage = () => {
   const isParticipant = user.id === order.buyerId || user.id === order.sellerId
   const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
   const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+  const offerTitle = offer?.title ?? 'Custom order'
+  const offerDescription = offer?.description?.trim() || 'Contact seller before payment for fast processing.'
+  const orderStatusLabel = order.status.replace('_', ' ')
+  const peerId = user.id === order.sellerId ? order.buyerId : order.sellerId
+  const peerLabel = sender === 'buyer' ? `seller_${order.sellerId}` : `buyer_${order.buyerId}`
+  const blockStorageKey = `looton_block_peer_${user.id}_${peerId}`
+  const [peerBlocked, setPeerBlocked] = useState(() => localStorage.getItem(blockStorageKey) === '1')
 
   if (!canAccessChat) {
     return (
@@ -1253,6 +1278,26 @@ export const ChatPage = () => {
     joinDisputeChat(activeDispute.id, alias)
   }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!menuRef.current || !event.target) return
+      if (!menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  useEffect(() => {
+    setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
+  }, [blockStorageKey])
+
+  const togglePeerBlock = () => {
+    const next = !peerBlocked
+    localStorage.setItem(blockStorageKey, next ? '1' : '0')
+    setPeerBlocked(next)
+    setMenuOpen(false)
+  }
+
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
     { value: 'not_received', label: 'Seller did not deliver the order' },
     { value: 'invalid', label: 'Delivered item/service is invalid' },
@@ -1260,12 +1305,25 @@ export const ChatPage = () => {
     { value: 'other', label: 'Other issue' }
   ]
 
+  const getOwnMessageState = (message: ChatMessage, index: number): 'sent' | 'delivered' | 'read' => {
+    const nextForeignReply = messages.slice(index + 1).find((item) => item.sender !== message.sender && item.sender !== 'system')
+    if (nextForeignReply) return 'read'
+    if (Date.now() - message.createdAt > 15_000) return 'delivered'
+    return 'sent'
+  }
+
+  const readStateLabel: Record<'sent' | 'delivered' | 'read', string> = {
+    sent: 'Sent',
+    delivered: 'Delivered',
+    read: 'Read'
+  }
+
   return (
     <div className="order-chat-mobile">
       <header className="product-header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back">←</button>
-        <h2>{offer?.title ?? 'Order chat'}</h2>
-        <div className="product-header-actions"><button className="icon-btn" aria-label="Menu">☰</button></div>
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
+        <h2>{offerTitle}</h2>
+        <div className="product-header-actions" />
       </header>
 
       <section className="product-block product-meta-grid">
@@ -1275,27 +1333,49 @@ export const ChatPage = () => {
         <div><span>Category</span><strong>{offer?.category ?? 'General'}</strong></div>
       </section>
 
-      <section className="product-block">
-        <h3>Seller description</h3>
-        <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offer?.description?.trim() || 'Contact seller before payment for fast processing.'}</p>
-        <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
-      </section>
+      <div className="order-chat-layout">
+        <section className="product-block listing-panel">
+          <h3>Listing details</h3>
+          <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offerDescription}</p>
+          <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
+          <div className="listing-tags">
+            <span className="chip">{offer?.category ?? 'General'}</span>
+            <span className="chip">{offer?.deliveryType ?? 'manual'} delivery</span>
+            <span className="chip">Escrow protected</span>
+          </div>
+        </section>
 
-      <section className="seller-chat-screen">
+        <section className="seller-chat-screen">
         <div className="seller-chat-top">
           <div className="seller-chat-identity">
-            <span className="seller-avatar">{`S`}</span>
+            <span className="seller-avatar">{`S`}<span className="seller-avatar-presence" aria-hidden /></span>
             <div>
               <p className="seller-chat-name">seller_{order.sellerId}</p>
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
-          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+          <div className="chat-menu-wrap" ref={menuRef}>
+            <button className="seller-chat-icons" aria-label="Chat menu" onClick={() => setMenuOpen((v) => !v)}><EllipsisVerticalIcon /></button>
+            {menuOpen && (
+              <div className="chat-menu card">
+                <button className="chat-menu-item" onClick={() => {
+                  setReportOpen(true)
+                  setMenuOpen(false)
+                }}>
+                  Open dispute
+                </button>
+                <button className="chat-menu-item danger" onClick={togglePeerBlock}>
+                  {peerBlocked ? 'Unblock user' : 'Block user'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="chat-messages">
           {groupedMessages.length ? groupedMessages.map(({ message, isGroupStart, isGroupEnd }, index) => {
             const isMine = (sender === 'buyer' && message.sender === 'buyer') || (sender === 'seller' && message.sender === 'seller') || (sender === 'arb' && message.sender === 'arb')
+            const ownState = isMine && message.sender !== 'system' ? getOwnMessageState(message, index) : undefined
             const label = message.sender === 'system' ? 'System' : message.sender === 'buyer' ? `buyer_${order.buyerId}` : message.sender === 'seller' ? `seller_${order.sellerId}` : `Arbitrator ${message.arbAlias ?? ''}`.trim()
             return (
               <div key={message.id} className={`msg-row ${isMine ? 'mine' : ''} ${isGroupStart ? 'group-start' : 'group-middle'} ${isGroupEnd ? 'group-end' : ''}`}>
@@ -1307,12 +1387,25 @@ export const ChatPage = () => {
                   {message.sender === 'system' && <small className="msg-author">{label}</small>}
                   <p>{message.text}</p>
                   {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="chat-attachment" />}
-                  <small className="msg-time">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                  <small className="msg-time">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {ownState && (
+                      <span className={`msg-read msg-read-${ownState}`}>
+                        {ownState === 'sent' ? <CheckIcon className="msg-read-icon" /> : <CheckDoubleIcon className="msg-read-icon" />}
+                        {' '}
+                        {readStateLabel[ownState]}
+                      </span>
+                    )}
+                  </small>
                 </div>
               </div>
             )
           }) : <div className="chat-empty-tip">No messages yet</div>}
         </div>
+
+        {peerBlocked && !canModerateChat && (
+          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in ☰ menu to continue messaging.</div>
+        )}
 
         {reportOpen && (
           <div className="chat-report card">
@@ -1358,17 +1451,20 @@ export const ChatPage = () => {
           <div className="chat-input-wrap">
             <textarea
               className="input chat-input"
-              placeholder={canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
+              placeholder={peerBlocked ? `Unblock ${peerLabel} to continue chatting...` : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               rows={1}
+              disabled={peerBlocked && !canModerateChat}
             />
             {attachedImage && <small className="attach-hint">Image attached</small>}
           </div>
           <button
             className="icon-btn send-btn"
             aria-label="Send message"
+            disabled={(peerBlocked && !canModerateChat) || !draft.trim()}
             onClick={() => {
+              if (peerBlocked && !canModerateChat) return
               sendOrderMessage(
                 order.id,
                 sender,
@@ -1384,7 +1480,20 @@ export const ChatPage = () => {
             <svg className="icon icon-send" aria-hidden><use href="#i-send" /></svg>
           </button>
         </div>
-      </section>
+        </section>
+
+        <aside className="product-block deal-summary">
+          <p className="deal-kicker">Escrow protection</p>
+          <h3>Secure deal</h3>
+          <ul className="deal-summary-list">
+            <li><span>Offer</span><strong className="deal-value" title={offerTitle}>{offerTitle}</strong></li>
+            <li><span>Description</span><strong className="deal-value" title={offerDescription}>{offerDescription}</strong></li>
+            <li><span>Amount</span><strong className="deal-amount">{order.amountTon} TON</strong></li>
+            <li><span>Status</span><strong className="deal-status-text">{orderStatusLabel}</strong></li>
+          </ul>
+          <div className="deal-summary-note">⚠️ Never transfer funds outside the platform.</div>
+        </aside>
+      </div>
     </div>
   )
 }

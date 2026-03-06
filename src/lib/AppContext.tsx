@@ -112,6 +112,10 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
     openedBy: 'buyer' | 'seller' = 'buyer',
     reasonCode: Dispute['reasonCode'] = 'other'
   ): Dispute => {
+    const now = Date.now()
+    const autoAssignedArbId = 'arb_3001'
+    const autoAssignedAlias = 'arb_alpha'
+
     updateOrder(orderId, { status: 'disputed' })
 
     const dispute: Dispute = {
@@ -120,8 +124,10 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       openedBy,
       reasonCode,
       message,
-      evidence: [{ type: 'text', url: message, createdAt: Date.now() }],
-      status: 'opened',
+      evidence: [{ type: 'text', url: message, createdAt: now }],
+      status: 'assigned_trainee',
+      assignedTo: autoAssignedArbId,
+      arbitratorAlias: autoAssignedAlias,
       appealCount: 0
     }
 
@@ -135,8 +141,25 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId,
       sender: 'system',
-      text: '⚖️ An arbitrator will join this chat soon to help resolve your issue.',
-      createdAt: Date.now()
+      text: '⚖️ Dispute opened. Assigned arbitrator will join this chat now.',
+      createdAt: now
+    })
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId,
+      sender: 'system',
+      text: `⚖️ Dispute ${dispute.id} assigned to arbitrator ${autoAssignedAlias}.`,
+      createdAt: now + 1
+    })
+
+    appendChatMessage({
+      id: uid('chat'),
+      orderId,
+      sender: 'arb',
+      arbAlias: autoAssignedAlias,
+      text: 'Hello, I am your assigned arbitrator. Please provide order details and evidence in this chat.',
+      createdAt: now + 2
     })
 
     return dispute
