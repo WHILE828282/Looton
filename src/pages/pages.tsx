@@ -6,7 +6,8 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import { ArrowLeftIcon, AttachmentIcon, BlockIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, ReportIcon, SearchIcon, SendArrowIcon, SendIcon, SettingsIcon, ShieldIcon, StarIcon, TonIcon, UnblockIcon, WalletIcon } from '../icons1/UiIcons'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
+import { ChatPageLayout, ReportModal, type ReportReason } from '../components/chat/ChatLayout'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
 
 
@@ -1255,7 +1256,7 @@ export const ChatPage = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
   const [hasExistingReview, setHasExistingReview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1648,11 +1649,10 @@ export const MessagesPage = () => {
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const [reportAttachment, setReportAttachment] = useState<string | undefined>()
   const [peerBlocked, setPeerBlocked] = useState(false)
-  const composerFileRef = useRef<HTMLInputElement | null>(null)
-  const reportFileRef = useRef<HTMLInputElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const composerFileRef = useRef<HTMLInputElement>(null)
+  const reportFileRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
-  type ReportReason = 'not_completed' | 'no_response' | 'wrong_item' | 'fraud' | 'order_issue' | 'abuse' | 'other'
   const [reportReason, setReportReason] = useState<ReportReason>('not_completed')
 
   const reportReasons: Array<{ value: ReportReason; label: string }> = [
@@ -1838,196 +1838,94 @@ export const MessagesPage = () => {
 
   return (
     <div className="messages-center">
-      <section className="messages-shell">
-        <aside className="messages-list card" aria-label="Conversation list">
-          <div className="messages-list-head">
-            <strong>Messages</strong>
-            <small>{threads.length} chats</small>
-          </div>
+      <ChatPageLayout
+        threads={threads}
+        selectedOrderId={selectedOrderId}
+        onSelectThread={(orderId) => {
+          setSelectedOrderId(orderId)
+          setDetailsOpen(false)
+          setMenuOpen(false)
+          setReportOpen(false)
+        }}
+        selectedThread={selectedThread}
+        selectedMessages={selectedMessages}
+        sender={sender}
+        senderLabel={senderLabel}
+        getSystemType={getSystemType}
+        trimSystemPrefix={trimSystemPrefix}
+        headerProps={{
+          peer: selectedThread?.peer ?? '',
+          isBlocked: peerBlocked,
+          menuOpen,
+          menuRef,
+          detailsOpen: () => setDetailsOpen(true),
+          onToggleMenu: () => setMenuOpen((prev) => !prev),
+          onReport: () => {
+            setReportOpen(true)
+            setMenuOpen(false)
+          },
+          onToggleBlock: toggleBlockPeer
+        }}
+        composerProps={{
+          composerFileRef,
+          draft,
+          attachedImage,
+          isBlocked: peerBlocked,
+          isArbitrator,
+          canSend: canSendMessage,
+          onDraftChange: setDraft,
+          onDraftInput: (event) => {
+            const el = event.currentTarget
+            el.style.height = 'auto'
+            el.style.height = `${Math.min(el.scrollHeight, 108)}px`
+          },
+          onComposerFile,
+          onOpenComposerFile: openComposerFile,
+          onRemoveAttachment: () => {
+            setAttachedImage(undefined)
+            if (composerFileRef.current) composerFileRef.current.value = ''
+          },
+          onSend: submitMessage
+        }}
+      />
 
-          <div className="messages-list-scroll">
-            <div className="messages-list-stack">
-              {threads.length ? threads.map((thread) => {
-              const isActive = thread.order.id === selectedOrderId
-              return (
-                <button
-                  key={thread.order.id}
-                  type="button"
-                  className={`messages-thread ${isActive ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedOrderId(thread.order.id)
-                    setDetailsOpen(false)
-                    setMenuOpen(false)
-                    setReportOpen(false)
-                  }}
-                >
-                  <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
-                  <div className="messages-thread-meta">
-                    <div className="messages-thread-row">
-                      <strong>{thread.peer}</strong>
-                      <small>{thread.time}</small>
-                    </div>
-                    <p>{thread.preview}</p>
-                    <div className="messages-thread-row">
-                      <small>{thread.title}</small>
-                      {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
-                    </div>
-                  </div>
-                </button>
-              )
-            }) : <p className="muted">No conversations yet.</p>}
+      {selectedThread && detailsOpen && (
+        <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
+          <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
+          <aside className="messages-details card">
+            <div className="messages-details-top">
+              <h3>Details</h3>
+              <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
             </div>
-          </div>
-        </aside>
+            <p className="messages-details-label">Description</p>
+            <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
+          </aside>
+        </div>
+      )}
 
-        <section className="messages-chat card" aria-label="Chat panel">
-          {!selectedThread ? (
-            <div className="messages-empty-pill">Select a chat to start messaging</div>
-          ) : (
-            <div className="messages-chat-grid">
-              <article className="messages-chat-main">
-                <header className="messages-chat-head">
-                  <div>
-                    <strong>{selectedThread.peer}</strong>
-                    <small>{peerBlocked ? 'Blocked' : 'Online'}</small>
-                  </div>
-                  <div className="messages-head-actions" ref={menuRef}>
-                    <button className="icon-btn" type="button" aria-label="Chat actions" onClick={() => setMenuOpen((prev) => !prev)}><EllipsisVerticalIcon /></button>
-                    <button className="btn details-toggle-btn" type="button" onClick={() => setDetailsOpen(true)}>Details</button>
-                    {menuOpen && (
-                      <div className="messages-menu card" role="menu" aria-label="Chat actions menu">
-                        <button type="button" className="messages-menu-item" onClick={() => { setReportOpen(true); setMenuOpen(false) }}>
-                          <ReportIcon />
-                          <span>Report</span>
-                        </button>
-                        <button type="button" className="messages-menu-item" onClick={toggleBlockPeer}>
-                          {peerBlocked ? <UnblockIcon /> : <BlockIcon />}
-                          <span>{peerBlocked ? 'Unblock user' : 'Block user'}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </header>
-
-                <div className="messages-chat-body">
-                  <div className="messages-chat-scroll">
-                    <div className="messages-list-viewport">
-                    {selectedMessages.length ? selectedMessages.map((message) => {
-                      const isSystem = message.sender === 'system'
-                      const isMine = !isSystem && message.sender === sender
-                      const cleanSystemText = isSystem ? trimSystemPrefix(message.text) : message.text
-                      const ownState = isMine ? (Date.now() - message.createdAt > 120000 ? 'read' : 'delivered') : null
-                      const systemType = isSystem ? getSystemType(cleanSystemText) : null
-
-                      return (
-                        <div key={message.id} className={`messages-bubble-wrap ${isMine ? 'mine' : ''} ${isSystem ? 'system-wrap' : ''}`}>
-                          {!isMine && <p className="messages-sender-name">{senderLabel(message)}</p>}
-                          <div className={`messages-bubble ${isSystem ? `system-${systemType}` : message.sender}`}>
-                            {isSystem && <span className="messages-system-icon"><ShieldIcon /></span>}
-                            <p>{cleanSystemText}</p>
-                            <small>
-                              {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              {ownState === 'delivered' && <CheckIcon className="msg-state-icon" />}
-                              {ownState === 'read' && <CheckDoubleIcon className="msg-state-icon" />}
-                            </small>
-                          </div>
-                        </div>
-                      )
-                    }) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
-                    </div>
-                  </div>
-
-                  <div className="messages-composer-overlay">
-                    <div className="messages-composer">
-                      <input ref={composerFileRef} className="file-input" type="file" accept="image/*" onChange={onComposerFile} />
-                      <button className="icon-btn" type="button" aria-label="Attach file" onClick={openComposerFile}><AttachmentIcon /></button>
-                      <div className="messages-compose-input-wrap">
-                        <textarea
-                          className="input messages-compose-input"
-                          placeholder={peerBlocked ? 'Unblock user to continue messaging...' : 'Write a message...'}
-                          value={draft}
-                          onChange={(event) => setDraft(event.target.value)}
-                          onInput={(event) => {
-                            const el = event.currentTarget
-                            el.style.height = 'auto'
-                            el.style.height = `${Math.min(el.scrollHeight, 108)}px`
-                          }}
-                          rows={1}
-                          disabled={peerBlocked && !isArbitrator}
-                        />
-                        {attachedImage && (
-                          <div className="messages-attachment-row">
-                            <small className="attach-hint">Attachment ready</small>
-                            <button className="messages-link-btn" type="button" onClick={() => {
-                              setAttachedImage(undefined)
-                              if (composerFileRef.current) composerFileRef.current.value = ''
-                            }}>Remove</button>
-                          </div>
-                        )}
-                      </div>
-                      <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!canSendMessage} onClick={submitMessage}><SendArrowIcon /></button>
-                    </div>
-                  </div>
-                </div>
-              </article>
-
-              {detailsOpen && (
-                <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
-                  <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
-                  <aside className="messages-details card">
-                    <div className="messages-details-top">
-                      <h3>Details</h3>
-                      <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
-                    </div>
-                    <p className="messages-details-label">Description</p>
-                    <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
-                  </aside>
-                </div>
-              )}
-
-              {reportOpen && (
-                <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Report user">
-                  <button className="messages-details-backdrop" type="button" aria-label="Close report" onClick={() => setReportOpen(false)} />
-                  <section className="messages-report card">
-                    <div className="messages-details-top">
-                      <h3>Report user</h3>
-                      <button className="icon-btn" type="button" aria-label="Close report" onClick={() => setReportOpen(false)}><EllipsisVerticalIcon /></button>
-                    </div>
-
-                    <label className="messages-details-label" htmlFor="report-reason">Report reason</label>
-                    <select id="report-reason" className="input" value={reportReason} onChange={(event) => setReportReason(event.target.value as ReportReason)}>
-                      {reportReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
-                    </select>
-
-                    {reportReason === 'other' && (
-                      <textarea className="input" rows={2} placeholder="Explain the issue" value={reportOtherReason} onChange={(event) => setReportOtherReason(event.target.value)} />
-                    )}
-
-                    <label className="messages-details-label" htmlFor="report-description">Description</label>
-                    <textarea id="report-description" className="input" rows={4} placeholder="Describe the issue" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
-
-                    <input ref={reportFileRef} className="file-input" type="file" accept="image/*" onChange={onReportFile} />
-                    <button className="btn secondary messages-report-attach" type="button" onClick={() => reportFileRef.current?.click()}><AttachmentIcon /> Attach screenshot</button>
-                    {reportAttachment && (
-                      <div className="messages-attachment-row">
-                        <small className="attach-hint">Screenshot attached</small>
-                        <button className="messages-link-btn" type="button" onClick={() => {
-                          setReportAttachment(undefined)
-                          if (reportFileRef.current) reportFileRef.current.value = ''
-                        }}>Remove</button>
-                      </div>
-                    )}
-
-                    <button className="btn" type="button" disabled={!reportDetails.trim() || (reportReason === 'other' && !reportOtherReason.trim())} onClick={submitReport}>Submit report</button>
-                  </section>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-      </section>
+      <ReportModal
+        reportOpen={reportOpen}
+        reportReason={reportReason}
+        reportReasons={reportReasons}
+        reportOtherReason={reportOtherReason}
+        reportDetails={reportDetails}
+        reportAttachment={reportAttachment}
+        reportFileRef={reportFileRef}
+        onClose={() => setReportOpen(false)}
+        onReasonChange={setReportReason}
+        onOtherReasonChange={setReportOtherReason}
+        onDetailsChange={setReportDetails}
+        onReportFile={onReportFile}
+        onOpenUpload={() => reportFileRef.current?.click()}
+        onRemoveAttachment={() => {
+          setReportAttachment(undefined)
+          if (reportFileRef.current) reportFileRef.current.value = ''
+        }}
+        onSubmit={submitReport}
+      />
     </div>
   )
+
 }
 
 export const SellPage = () => {
