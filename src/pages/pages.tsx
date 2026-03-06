@@ -10,7 +10,6 @@ import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalI
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
 
 
-
 type SellForm = {
   gameId: string
   category: OfferCategory
@@ -636,9 +635,10 @@ export const HomePage = () => {
     }))
 
   return (
-    <div className="stack">
-      <div className="search-wrap">
-        <input className="input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
+    <div className="stack market-home">
+      <div className="search-wrap market-search-wrap">
+        <span className="market-search-icon" aria-hidden><SearchIcon /></span>
+        <input className="input market-search-input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
         {!!searchSuggestions.length && (
           <div className="search-suggestions card">
             {searchSuggestions.map((suggestion) => (
