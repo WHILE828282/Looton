@@ -1638,7 +1638,7 @@ export const ChatPage = () => {
 export const MessagesPage = () => {
   const { user, orders, offers, disputes, chatMessages } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const staffKey = getStaffAssigneeKey(user.id, user.username)
+  const [query, setQuery] = useState('')
 
   const accessibleOrders = orders.filter((order) => {
     if (!isArbitrator) {
@@ -1677,22 +1677,68 @@ export const MessagesPage = () => {
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
 
+  const sideFilters = [
+    { key: 'all', label: 'All', icon: '●' },
+    { key: 'new', label: 'New', icon: '◔' },
+    { key: 'orders', label: 'Orders', icon: '◼' },
+    { key: 'support', label: 'Support', icon: '?' }
+  ]
+
   return (
-    <div className="stack">
-      <Card>
-        <h3>Messages</h3>
-        <p>{isArbitrator ? 'Assigned dispute chats. Open queue if list is empty.' : 'All chat threads with buyers and sellers.'}</p>
-      </Card>
-      <Card>
-        {isArbitrator && <Link className="btn secondary" to="/staff/queue">Open arbitrator queue</Link>}
-        {relatedOrders.length ? relatedOrders.map((item) => (
-          <Link key={item.order.id} className="row" to={item.chatLink}>
-            <strong>{item.title}</strong>
-            <small>{item.peer} · {item.time}</small>
-            <span>{item.preview}</span>
-          </Link>
-        )) : <p>{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet'}</p>}
-      </Card>
+    <div className="messages-center">
+      <header className="messages-topbar">
+        <div className="messages-brand">Looton</div>
+        <div className="messages-search-wrap">
+          <SearchIcon />
+          <input className="input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </div>
+        <nav className="messages-top-nav" aria-label="Marketplace navigation">
+          <button className="btn ghost" type="button">Purchases</button>
+          <button className="btn ghost" type="button">Sales</button>
+          <button className="btn ghost active" type="button">Messages</button>
+          <button className="btn ghost" type="button">Wallet</button>
+        </nav>
+      </header>
+
+      <section className="messages-shell">
+        <aside className="messages-left-menu card" aria-label="Conversation filters">
+          {sideFilters.map((item, index) => (
+            <button key={item.key} type="button" className={`messages-filter-btn ${index === 0 ? 'active' : ''}`}>
+              <span aria-hidden>{item.icon}</span>
+              <small>{item.label}</small>
+            </button>
+          ))}
+        </aside>
+
+        <aside className="messages-list card" aria-label="Conversation list">
+          <div className="messages-list-head">
+            <strong>Telegram notifications</strong>
+            <button className="btn ghost" type="button">On</button>
+          </div>
+
+          {relatedOrders.length ? relatedOrders.map((item, index) => (
+            <article key={item.order.id} className={`messages-thread ${index === 0 ? 'active' : ''}`}>
+              <div className="messages-thread-avatar">{item.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
+              <div className="messages-thread-meta">
+                <div className="messages-thread-row">
+                  <strong>{item.peer}</strong>
+                  <small>{new Date(item.order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</small>
+                </div>
+                <p>{item.preview}</p>
+                <div className="messages-thread-row">
+                  <small>{item.title}</small>
+                  <span className="messages-unread">{Math.max(1, Math.min(9, Math.floor(item.preview.length / 18)))}</span>
+                </div>
+                <Link className="messages-open-link" to={item.chatLink}>Order support</Link>
+              </div>
+            </article>
+          )) : <p className="muted">{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet.'}</p>}
+        </aside>
+
+        <section className="messages-chat card" aria-label="Chat preview panel">
+          <div className="messages-empty-pill">Select a chat to start messaging</div>
+        </section>
+      </section>
     </div>
   )
 }
