@@ -6,7 +6,9 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
+
 
 type SellForm = {
   gameId: string
@@ -20,9 +22,9 @@ type SellForm = {
 
 
 
-const DISPUTE_POLICY = `🔒 Dispute & Appeal Policy (Looton)
+const DISPUTE_POLICY = ` Dispute & Appeal Policy (Looton)
 
-📌 What happens after a dispute is opened?
+ What happens after a dispute is opened?
 
 If a dispute is opened for your order:
 • The transaction is immediately frozen.
@@ -30,7 +32,7 @@ If a dispute is opened for your order:
 • An independent Looton arbitrator is assigned.
 • Both parties must provide evidence (screenshots, transaction IDs, chat history, delivery proof).
 
-⚠️ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
+ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
 
 const COMPLETE_ORDER_WARNING = `Confirm Order Completion
 
@@ -41,12 +43,12 @@ If you confirm:
 • Payment is released to the seller.
 • You may lose the ability to dispute this order.
 
-✅ Confirm ONLY if you have:
+ Confirm ONLY if you have:
 • received the item/service in full,
 • verified access/ownership (accounts/keys/subscriptions),
 • checked that everything matches the listing.
 
-❌ Do NOT confirm if:
+ Do NOT confirm if:
 • delivery is pending,
 • the item is incorrect/partial,
 • you were asked to confirm “in advance”.
@@ -63,7 +65,7 @@ If you cancel:
 • escrow may be released according to the current order state,
 • reopening may be impossible.
 
-❌ If the order is not fully delivered, DO NOT cancel.
+ If the order is not fully delivered, DO NOT cancel.
 Wait for the assigned arbitrator and provide evidence.`
 
 const APPEAL_CONFIRM_STEPS = [
@@ -90,15 +92,15 @@ const StatusBadge = ({ status }: { status: OrderStatus }) => (
 )
 
 const FAQ_SECTIONS = [
-  '📜 Looton Platform Rules',
-  '⚠️ Confirmation popup before completing an order',
-  '⚠️ Warning popup before canceling a dispute',
-  '📜 Terms of Service (legal-style)',
-  '📜 Seller Agreement',
-  '📜 Arbitration Rules'
+  'Looton Platform Rules',
+  'Confirmation popup before completing an order',
+  'Warning popup before canceling a dispute',
+  'Terms of Service (legal-style)',
+  'Seller Agreement',
+  'Arbitration Rules'
 ] as const
 
-const LOOTON_PLATFORM_RULES = `📜 Looton Platform Rules
+const LOOTON_PLATFORM_RULES = `Looton Platform Rules
 
 1. General Provisions
 
@@ -490,11 +492,11 @@ const isAssignedToStaff = (assignedTo: string | undefined, userId: number, usern
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
 const PROFILE_SETTINGS_PRIMARY = [
-  { icon: '🌐', label: 'Language', value: 'English' },
-  { icon: '💲', label: 'Wallet currency', value: 'USD' },
-  { icon: '🕒', label: 'Timezone', value: 'UTC+3' },
-  { icon: '🌓', label: 'Theme', value: 'Auto' },
-  { icon: '🛠️', label: 'Exchange settings', value: 'Open' }
+  { icon: 'language', label: 'Language', value: 'English' },
+  { icon: 'wallet', label: 'Wallet currency', value: 'USD' },
+  { icon: 'time', label: 'Timezone', value: 'UTC+3' },
+  { icon: 'theme', label: 'Theme', value: 'Auto' },
+  { icon: 'settings', label: 'Exchange settings', value: 'Open' }
 ] as const
 
 const PROFILE_LEGAL_LINKS = [
@@ -503,6 +505,14 @@ const PROFILE_LEGAL_LINKS = [
   'Terms of Use',
   'Website Usage Rules'
 ] as const
+
+const settingsIconMap = {
+  language: GlobeIcon,
+  wallet: WalletIcon,
+  time: ClockIcon,
+  theme: MoonIcon,
+  settings: SettingsIcon
+} as const
 
 const iconCandidates = (src: string) => {
   const normalized = src.trim()
@@ -551,7 +561,7 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
     <span>{offer.priceTon} TON</span>
-    <small>{payoutBadge(offer)} · ⭐ {offer.sellerStats.rating} · {offer.sellerStats.depositTon} TON deposit</small>
+    <small>{payoutBadge(offer)} · <StarIcon className="inline-star-icon" /> {offer.sellerStats.rating} · {offer.sellerStats.depositTon} TON deposit</small>
   </Link>
 )
 
@@ -625,9 +635,10 @@ export const HomePage = () => {
     }))
 
   return (
-    <div className="stack">
-      <div className="search-wrap">
-        <input className="input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
+    <div className="stack market-home">
+      <div className="search-wrap market-search-wrap">
+        <span className="market-search-icon" aria-hidden><SearchIcon /></span>
+        <input className="input market-search-input" placeholder="Search games, offers, sellers" value={query} onChange={(event) => setQuery(event.target.value)} />
         {!!searchSuggestions.length && (
           <div className="search-suggestions card">
             {searchSuggestions.map((suggestion) => (
@@ -659,7 +670,7 @@ export const HomePage = () => {
       </Card>
 
       <Card>
-        <h3>Trending 🔥</h3>
+        <h3>Trending </h3>
         <div className="trending-scroll">
           {trendingSections.map((section, index) => (
             <Link key={section.id} className={`trending-item ${index === 0 ? 'active' : ''}`} to={section.to}>
@@ -822,7 +833,7 @@ export const OffersPage = () => {
           <Link key={o.id} to={`/offer/${o.id}`} className="row">
             <strong>{o.title}</strong>
             <small className="offer-meta">
-              ⭐ {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
+              <StarIcon className="inline-star-icon" /> {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
             </small>
             <span>{o.priceTon} TON</span>
           </Link>
@@ -832,13 +843,16 @@ export const OffersPage = () => {
   )
 }
 
-const StarRating = ({ rating }: { rating: NonNullable<ProductChatMessage['rating']> }) => (
-  <div className="chat-stars" aria-label={`Rating ${rating} out of 5`}>
-    {Array.from({ length: 5 }).map((_, index) => (
-      <span key={index} className={index < rating ? 'active' : ''}>★</span>
-    ))}
-  </div>
-)
+const StarRating = ({ rating = null }: { rating?: ProductChatMessage['rating'] | null }) => {
+  const safeRating = Math.max(0, Math.min(5, Math.round(rating ?? 0)))
+  return (
+    <div className="chat-stars" aria-label={`Rating ${safeRating} out of 5`}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <StarIcon key={index} className={index < safeRating ? 'active' : ''} />
+      ))}
+    </div>
+  )
+}
 
 const formatChatDayLabel = (dateIso: string) => {
   const date = new Date(dateIso)
@@ -849,7 +863,10 @@ const ChatBubble = ({ message, compact }: { message: ProductChatMessage; compact
   <article className={`chat-message-row ${message.author === 'seller' ? 'seller' : 'buyer'} ${compact ? 'compact' : ''}`}>
     <div className={`chat-message-bubble ${message.author === 'seller' ? 'seller' : 'buyer'}`}>
       {message.orderMeta && (
-        <p className="chat-order-meta">{message.orderMeta.productLabel}, {message.orderMeta.priceRub} ₽</p>
+        <p className="chat-order-meta review-order-meta">
+          <span>{message.orderMeta.productLabel}</span>
+          <span className="ton-amount"><span>{Math.max(1, Math.round(message.orderMeta.priceRub / 50))}</span> <TonIcon className="ton-inline-icon" /> TON</span>
+        </p>
       )}
       {message.rating && <StarRating rating={message.rating} />}
       <p className="chat-message-text">{message.text}</p>
@@ -878,6 +895,7 @@ export const OfferDetailsPage = () => {
   const currentOffer = offers.find((item) => item.id === offerId)
   const [product, setProduct] = useState<Product | null>(null)
   const [messages, setMessages] = useState<ProductChatMessage[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [isProductLoading, setIsProductLoading] = useState(true)
   const [isChatLoading, setIsChatLoading] = useState(false)
@@ -907,8 +925,7 @@ export const OfferDetailsPage = () => {
     const page = await productApi.getChatMessages({
       id: offerId,
       cursor: nextCursor,
-      limit: 12,
-      productLabel: currentOffer?.title
+      limit: 12
     })
 
     setMessages((prev) => [...page.items, ...prev])
@@ -929,8 +946,7 @@ export const OfferDetailsPage = () => {
       const page = await productApi.getChatMessages({
         id: offerId,
         cursor: null,
-        limit: 12,
-        productLabel: currentOffer?.title
+        limit: 12
       })
       if (!active) return
       setMessages(page.items)
@@ -950,6 +966,19 @@ export const OfferDetailsPage = () => {
   }, [offerId, currentOffer?.title])
 
   useEffect(() => {
+    let active = true
+    const loadReviews = async () => {
+      const data = await productApi.getReviews({ offerId })
+      if (!active) return
+      setReviews(data)
+    }
+    void loadReviews()
+    return () => {
+      active = false
+    }
+  }, [offerId])
+
+  useEffect(() => {
     if (!topSentinelRef.current || !messagesRef.current) return
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) void loadOlderMessages()
@@ -960,10 +989,18 @@ export const OfferDetailsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesRef, topSentinelRef, nextCursor, isChatLoading, offerId])
 
-  const showDaySeparator = (index: number) => {
+
+  const conversationMessages = messages
+
+  const showConversationDaySeparator = (index: number) => {
     if (index === 0) return true
-    return formatChatDayLabel(messages[index - 1].createdAt) !== formatChatDayLabel(messages[index].createdAt)
+    return formatChatDayLabel(conversationMessages[index - 1].createdAt) !== formatChatDayLabel(conversationMessages[index].createdAt)
   }
+
+  const shouldShowSellerTrustCard = conversationMessages.length === 0
+  const sellerPreviewStars = Math.max(1, Math.min(5, Math.round(currentOffer?.sellerStats.rating ?? 5)))
+  const sellerReviewCount = reviews.length
+  const sellerCompletionRate = Math.max(90, Math.min(100, Math.round(((currentOffer?.sellerStats.rating ?? 5) / 5) * 1000) / 10))
 
   const onSend = () => {
     const text = chatInput.trim()
@@ -990,12 +1027,12 @@ export const OfferDetailsPage = () => {
   return (
     <div className="product-page">
       <header className="product-header">
-        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back">←</button>
+        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
         <h2>{currentOffer?.title ?? product.title}</h2>
         <div className="product-header-actions">
-          <button className="icon-btn" aria-label="Search">⌕</button>
-          <button className="icon-btn" aria-label="Theme">☾</button>
-          <button className="icon-btn" aria-label="Menu">☰</button>
+          <button className="icon-btn" aria-label="Search"><SearchIcon /></button>
+          <button className="icon-btn" aria-label="Theme"><MoonIcon /></button>
+          <button className="icon-btn" aria-label="Menu"><EllipsisVerticalIcon /></button>
         </div>
       </header>
 
@@ -1017,7 +1054,7 @@ export const OfferDetailsPage = () => {
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
-          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+          <button className="seller-chat-icons" aria-label="Chat menu"><EllipsisVerticalIcon /></button>
         </div>
 
         <div className="chat-messages" ref={messagesRef}>
@@ -1028,15 +1065,24 @@ export const OfferDetailsPage = () => {
             </button>
           )}
 
-          {!messages.length && (
-            <div className="chat-empty-tip">Message seller before payment</div>
+          {shouldShowSellerTrustCard && (
+            <div className="chat-empty-tip seller-trust-card" role="note" aria-live="polite">
+              <div className="seller-trust-stars" aria-label={`Seller rating ${sellerPreviewStars} out of 5`}>
+                {Array.from({ length: 5 }).map((_, index) => <StarIcon key={`trust-star-${index}`} className={index < sellerPreviewStars ? 'active' : ''} />)}
+              </div>
+              <p className="seller-trust-reviews">
+                {sellerReviewCount ? `${sellerReviewCount} reviews from buyers` : 'Trusted seller profile'}
+              </p>
+              <p className="seller-trust-metric">{sellerCompletionRate.toFixed(1)}% completed orders</p>
+              <p className="seller-trust-tip">Message seller before payment</p>
+            </div>
           )}
 
-          {messages.map((message, index) => {
-            const compact = index > 0 && messages[index - 1].author === message.author
+          {conversationMessages.map((message, index) => {
+            const compact = index > 0 && conversationMessages[index - 1].author === message.author
             return (
               <div key={message.id}>
-                {showDaySeparator(index) && (
+                {showConversationDaySeparator(index) && (
                   <div className="chat-day-separator">
                     <span>{formatChatDayLabel(message.createdAt)}</span>
                   </div>
@@ -1047,6 +1093,7 @@ export const OfferDetailsPage = () => {
           })}
         </div>
 
+
         <div className="chat-input-bar">
           <input
             className="input chat-offer-input"
@@ -1055,9 +1102,26 @@ export const OfferDetailsPage = () => {
             placeholder="Write a message..."
           />
           <button className="btn chat-send-btn" type="button" onClick={onSend} disabled={!chatInput.trim()}>
-            ➤
+            <SendIcon />
           </button>
         </div>
+      </section>
+
+      <section className="product-block product-reviews">
+        <h3>Reviews</h3>
+        {reviews.length ? reviews.map((review) => {
+          const amountTon = Math.max(1, Math.round(review.priceRub / 50))
+          return (
+            <article className="review-item" key={review.id}>
+              <StarRating rating={review.rating} />
+              <p className="chat-order-meta review-order-meta">
+                <span>{review.productLabel}</span>
+                <span className="ton-amount"><span>{amountTon}</span> <TonIcon className="ton-inline-icon" /> TON</span>
+              </p>
+              <p className="chat-message-text">{review.text}</p>
+            </article>
+          )
+        }) : <p className="muted">No reviews yet.</p>}
       </section>
     </div>
   )
@@ -1184,7 +1248,14 @@ export const ChatPage = () => {
   const [reportDetails, setReportDetails] = useState('')
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const [expandedDescription, setExpandedDescription] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [reviewRating, setReviewRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null)
+  const [reviewText, setReviewText] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
+  const [hasExistingReview, setHasExistingReview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1201,6 +1272,15 @@ export const ChatPage = () => {
   const isParticipant = user.id === order.buyerId || user.id === order.sellerId
   const canAccessChat = canModerateChat || (!isArbitrator && isParticipant)
   const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : user.id === order.sellerId ? 'seller' : 'buyer'
+  const offerTitle = offer?.title ?? 'Custom order'
+  const offerDescription = offer?.description?.trim() || 'Contact seller before payment for fast processing.'
+  const orderStatusLabel = order.status.replace('_', ' ')
+  const peerId = user.id === order.sellerId ? order.buyerId : order.sellerId
+  const peerLabel = sender === 'buyer' ? `seller_${order.sellerId}` : `buyer_${order.buyerId}`
+  const blockStorageKey = `looton_block_peer_${user.id}_${peerId}`
+  const [peerBlocked, setPeerBlocked] = useState(() => localStorage.getItem(blockStorageKey) === '1')
+  const canLeaveReview = sender === 'buyer' && ['confirmed', 'auto_confirmed'].includes(order.status)
+  const showReviewComposer = canLeaveReview && !hasExistingReview && !reviewSubmitted
 
   if (!canAccessChat) {
     return (
@@ -1253,6 +1333,71 @@ export const ChatPage = () => {
     joinDisputeChat(activeDispute.id, alias)
   }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!menuRef.current || !event.target) return
+      if (!menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  useEffect(() => {
+    setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
+  }, [blockStorageKey])
+
+  useEffect(() => {
+    let active = true
+    if (!canLeaveReview || !offer) {
+      setHasExistingReview(false)
+      return () => {
+        active = false
+      }
+    }
+
+    const checkReview = async () => {
+      const exists = await productApi.hasReviewForOrder({ offerId: offer.id, orderId: order.id })
+      if (!active) return
+      setHasExistingReview(exists)
+    }
+
+    void checkReview()
+    return () => {
+      active = false
+    }
+  }, [canLeaveReview, offer, order.id])
+
+  const submitOrderReview = async () => {
+    if (!offer || !canLeaveReview) return
+    if (reviewRating === null) return
+    const text = reviewText.trim()
+    if (!text) return
+    setReviewSubmitting(true)
+    try {
+      await productApi.submitReview({
+        offerId: offer.id,
+        orderId: order.id,
+        productLabel: offerTitle,
+        amountTon: order.amountTon,
+        rating: reviewRating,
+        text
+      })
+      setReviewSubmitted(true)
+      setHasExistingReview(true)
+      setReviewText('')
+      setReviewRating(null)
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
+  const togglePeerBlock = () => {
+    const next = !peerBlocked
+    localStorage.setItem(blockStorageKey, next ? '1' : '0')
+    setPeerBlocked(next)
+    setMenuOpen(false)
+  }
+
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
     { value: 'not_received', label: 'Seller did not deliver the order' },
     { value: 'invalid', label: 'Delivered item/service is invalid' },
@@ -1260,12 +1405,25 @@ export const ChatPage = () => {
     { value: 'other', label: 'Other issue' }
   ]
 
+  const getOwnMessageState = (message: ChatMessage, index: number): 'sent' | 'delivered' | 'read' => {
+    const nextForeignReply = messages.slice(index + 1).find((item) => item.sender !== message.sender && item.sender !== 'system')
+    if (nextForeignReply) return 'read'
+    if (Date.now() - message.createdAt > 15_000) return 'delivered'
+    return 'sent'
+  }
+
+  const readStateLabel: Record<'sent' | 'delivered' | 'read', string> = {
+    sent: 'Sent',
+    delivered: 'Delivered',
+    read: 'Read'
+  }
+
   return (
     <div className="order-chat-mobile">
       <header className="product-header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back">←</button>
-        <h2>{offer?.title ?? 'Order chat'}</h2>
-        <div className="product-header-actions"><button className="icon-btn" aria-label="Menu">☰</button></div>
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
+        <h2>{offerTitle}</h2>
+        <div className="product-header-actions" />
       </header>
 
       <section className="product-block product-meta-grid">
@@ -1275,27 +1433,49 @@ export const ChatPage = () => {
         <div><span>Category</span><strong>{offer?.category ?? 'General'}</strong></div>
       </section>
 
-      <section className="product-block">
-        <h3>Seller description</h3>
-        <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offer?.description?.trim() || 'Contact seller before payment for fast processing.'}</p>
-        <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
-      </section>
+      <div className="order-chat-layout">
+        <section className="product-block listing-panel">
+          <h3>Listing details</h3>
+          <p className={expandedDescription ? 'seller-description expanded' : 'seller-description'}>{offerDescription}</p>
+          <button className="text-btn" onClick={() => setExpandedDescription((v) => !v)}>{expandedDescription ? 'Hide' : 'Show more'}</button>
+          <div className="listing-tags">
+            <span className="chip">{offer?.category ?? 'General'}</span>
+            <span className="chip">{offer?.deliveryType ?? 'manual'} delivery</span>
+            <span className="chip">Escrow protected</span>
+          </div>
+        </section>
 
-      <section className="seller-chat-screen">
+        <section className="seller-chat-screen">
         <div className="seller-chat-top">
           <div className="seller-chat-identity">
-            <span className="seller-avatar">{`S`}</span>
+            <span className="seller-avatar">{`S`}<span className="seller-avatar-presence" aria-hidden /></span>
             <div>
               <p className="seller-chat-name">seller_{order.sellerId}</p>
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
-          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+          <div className="chat-menu-wrap" ref={menuRef}>
+            <button className="seller-chat-icons" aria-label="Chat menu" onClick={() => setMenuOpen((v) => !v)}><EllipsisVerticalIcon /></button>
+            {menuOpen && (
+              <div className="chat-menu card">
+                <button className="chat-menu-item" onClick={() => {
+                  setReportOpen(true)
+                  setMenuOpen(false)
+                }}>
+                  Open dispute
+                </button>
+                <button className="chat-menu-item danger" onClick={togglePeerBlock}>
+                  {peerBlocked ? 'Unblock user' : 'Block user'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="chat-messages">
           {groupedMessages.length ? groupedMessages.map(({ message, isGroupStart, isGroupEnd }, index) => {
             const isMine = (sender === 'buyer' && message.sender === 'buyer') || (sender === 'seller' && message.sender === 'seller') || (sender === 'arb' && message.sender === 'arb')
+            const ownState = isMine && message.sender !== 'system' ? getOwnMessageState(message, index) : undefined
             const label = message.sender === 'system' ? 'System' : message.sender === 'buyer' ? `buyer_${order.buyerId}` : message.sender === 'seller' ? `seller_${order.sellerId}` : `Arbitrator ${message.arbAlias ?? ''}`.trim()
             return (
               <div key={message.id} className={`msg-row ${isMine ? 'mine' : ''} ${isGroupStart ? 'group-start' : 'group-middle'} ${isGroupEnd ? 'group-end' : ''}`}>
@@ -1307,12 +1487,25 @@ export const ChatPage = () => {
                   {message.sender === 'system' && <small className="msg-author">{label}</small>}
                   <p>{message.text}</p>
                   {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="chat-attachment" />}
-                  <small className="msg-time">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                  <small className="msg-time">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {ownState && (
+                      <span className={`msg-read msg-read-${ownState}`}>
+                        {ownState === 'sent' ? <CheckIcon className="msg-read-icon" /> : <CheckDoubleIcon className="msg-read-icon" />}
+                        {' '}
+                        {readStateLabel[ownState]}
+                      </span>
+                    )}
+                  </small>
                 </div>
               </div>
             )
           }) : <div className="chat-empty-tip">No messages yet</div>}
         </div>
+
+        {peerBlocked && !canModerateChat && (
+          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in menu to continue messaging.</div>
+        )}
 
         {reportOpen && (
           <div className="chat-report card">
@@ -1338,6 +1531,41 @@ export const ChatPage = () => {
           </div>
         )}
 
+        {showReviewComposer && (
+          <section className="chat-review-composer" aria-label="Leave seller review">
+            <h4>Order completed. Leave a review for {peerLabel}</h4>
+            <p>Your rating helps other buyers choose reliable sellers.</p>
+            <div className="chat-review-stars" role="radiogroup" aria-label="Choose a rating">
+              {([1, 2, 3, 4, 5] as const).map((value) => (
+                <button
+                  key={`review-star-${value}`}
+                  className={`icon-btn review-star-btn ${(reviewRating ?? 0) >= value ? 'active' : ''}`}
+                  type="button"
+                  aria-label={`Rate ${value} star${value > 1 ? 's' : ''}`}
+                  aria-pressed={(reviewRating ?? 0) >= value}
+                  onClick={() => setReviewRating(value)}
+                >
+                  <StarIcon />
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="input"
+              placeholder="What did you like about this order?"
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              rows={3}
+            />
+            <button className="btn" type="button" disabled={reviewSubmitting || reviewRating === null || !reviewText.trim()} onClick={() => void submitOrderReview()}>
+              {reviewSubmitting ? 'Submitting review…' : 'Submit review'}
+            </button>
+          </section>
+        )}
+
+        {canLeaveReview && hasExistingReview && (
+          <div className="chat-review-success">Your review for this completed order is already published.</div>
+        )}
+
         <div className="chat-input-bar">
           <label className="icon-btn attach-btn" title="Attach file">
             <svg className="icon icon-paperclip" aria-hidden><use href="#i-attach" /></svg>
@@ -1358,17 +1586,20 @@ export const ChatPage = () => {
           <div className="chat-input-wrap">
             <textarea
               className="input chat-input"
-              placeholder={canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
+              placeholder={peerBlocked ? `Unblock ${peerLabel} to continue chatting...` : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               rows={1}
+              disabled={peerBlocked && !canModerateChat}
             />
             {attachedImage && <small className="attach-hint">Image attached</small>}
           </div>
           <button
             className="icon-btn send-btn"
             aria-label="Send message"
+            disabled={(peerBlocked && !canModerateChat) || !draft.trim()}
             onClick={() => {
+              if (peerBlocked && !canModerateChat) return
               sendOrderMessage(
                 order.id,
                 sender,
@@ -1384,7 +1615,20 @@ export const ChatPage = () => {
             <svg className="icon icon-send" aria-hidden><use href="#i-send" /></svg>
           </button>
         </div>
-      </section>
+        </section>
+
+        <aside className="product-block deal-summary">
+          <p className="deal-kicker">Escrow protection</p>
+          <h3>Secure deal</h3>
+          <ul className="deal-summary-list">
+            <li><span>Offer</span><strong className="deal-value" title={offerTitle}>{offerTitle}</strong></li>
+            <li><span>Description</span><strong className="deal-value" title={offerDescription}>{offerDescription}</strong></li>
+            <li><span>Amount</span><strong className="deal-amount">{order.amountTon} TON</strong></li>
+            <li><span>Status</span><strong className="deal-status-text">{orderStatusLabel}</strong></li>
+          </ul>
+          <div className="deal-summary-note"> Never transfer funds outside the platform.</div>
+        </aside>
+      </div>
     </div>
   )
 }
@@ -1392,9 +1636,13 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, disputes, chatMessages } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const staffKey = getStaffAssigneeKey(user.id, user.username)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
+  const toEnglishSafe = (value: string) => /[А-Яа-яЁё]/.test(value) ? 'Message available' : value
 
   const accessibleOrders = orders.filter((order) => {
     if (!isArbitrator) {
@@ -1408,7 +1656,7 @@ export const MessagesPage = () => {
     )
   })
 
-  const relatedOrders = accessibleOrders
+  const threads = accessibleOrders
     .map((order) => {
       const offer = offers.find((item) => item.id === order.offerId)
       const orderDispute = disputes.find((dispute) =>
@@ -1420,35 +1668,146 @@ export const MessagesPage = () => {
         .filter((message) => message.orderId === order.id)
         .sort((a, b) => b.createdAt - a.createdAt)
       const latestMessage = orderMessages[0]
-      const chatLink = orderDispute ? `/order/${order.id}/chat?dispute=${orderDispute.id}` : `/order/${order.id}/chat`
+      const unreadCount = latestMessage && Date.now() - latestMessage.createdAt < 2 * 60 * 60 * 1000 ? 1 : 0
 
       return {
         order,
-        title: offer?.title ?? order.offerId,
-        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `User ${peerId}`,
-        preview: latestMessage?.text ?? 'No messages yet',
-        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleString() : '—',
-        chatLink
+        offer,
+        dispute: orderDispute,
+        title: offer?.title ?? 'Order chat',
+        peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `Seller ${peerId}`,
+        preview: toEnglishSafe(latestMessage?.text ?? 'No messages yet'),
+        time: latestMessage ? new Date(latestMessage.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
+        unreadCount,
+        hasSupport: Boolean(orderDispute)
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
 
+  const visibleThreads = threads
+
+  useEffect(() => {
+    if (!visibleThreads.length) {
+      setSelectedOrderId(null)
+      setDetailsOpen(false)
+      return
+    }
+    if (!selectedOrderId || !visibleThreads.some((thread) => thread.order.id === selectedOrderId)) {
+      setSelectedOrderId(visibleThreads[0].order.id)
+      setDetailsOpen(false)
+    }
+  }, [visibleThreads, selectedOrderId])
+
+  const selectedThread = visibleThreads.find((thread) => thread.order.id === selectedOrderId) ?? null
+
+  const selectedMessages = selectedThread
+    ? chatMessages
+      .filter((message) => message.orderId === selectedThread.order.id)
+      .sort((a, b) => a.createdAt - b.createdAt)
+    : []
+
+  const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : selectedThread?.order.sellerId === user.id ? 'seller' : 'buyer'
+
+  const submitMessage = () => {
+    if (!selectedThread || !draft.trim()) return
+    sendOrderMessage(selectedThread.order.id, sender, draft)
+    setDraft('')
+  }
+
   return (
-    <div className="stack">
-      <Card>
-        <h3>Messages</h3>
-        <p>{isArbitrator ? 'Assigned dispute chats. Open queue if list is empty.' : 'All chat threads with buyers and sellers.'}</p>
-      </Card>
-      <Card>
-        {isArbitrator && <Link className="btn secondary" to="/staff/queue">Open arbitrator queue</Link>}
-        {relatedOrders.length ? relatedOrders.map((item) => (
-          <Link key={item.order.id} className="row" to={item.chatLink}>
-            <strong>{item.title}</strong>
-            <small>{item.peer} · {item.time}</small>
-            <span>{item.preview}</span>
-          </Link>
-        )) : <p>{isArbitrator ? 'No assigned dispute chats yet.' : 'No conversations yet'}</p>}
-      </Card>
+    <div className="messages-center">
+      <section className="messages-shell">
+        <aside className="messages-list card" aria-label="Conversation list">
+          <div className="messages-list-head">
+            <strong>Messages</strong>
+            <small>{visibleThreads.length} chats</small>
+          </div>
+
+          <div className="messages-list-scroll">
+            {visibleThreads.length ? visibleThreads.map((thread) => {
+              const isActive = thread.order.id === selectedOrderId
+              return (
+                <button
+                  key={thread.order.id}
+                  type="button"
+                  className={`messages-thread ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedOrderId(thread.order.id)
+                    setDetailsOpen(false)
+                  }}
+                >
+                  <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
+                  <div className="messages-thread-meta">
+                    <div className="messages-thread-row">
+                      <strong>{thread.peer}</strong>
+                      <small>{thread.time}</small>
+                    </div>
+                    <p>{thread.preview}</p>
+                    <div className="messages-thread-row">
+                      <small>{thread.title}</small>
+                      {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
+                    </div>
+                  </div>
+                </button>
+              )
+            }) : <p className="muted">No conversations yet.</p>}
+          </div>
+        </aside>
+
+        <section className="messages-chat card" aria-label="Chat panel">
+          {!selectedThread ? (
+            <div className="messages-empty-pill">Select a chat to start messaging</div>
+          ) : (
+            <div className="messages-chat-grid">
+              <article className="messages-chat-main">
+                <header className="messages-chat-head">
+                  <div>
+                    <strong>{selectedThread.peer}</strong>
+                    <small>Online</small>
+                  </div>
+                  <button className="btn details-toggle-btn" type="button" onClick={() => setDetailsOpen(true)}>Details</button>
+                </header>
+
+                <div className="messages-chat-scroll">
+                  {selectedMessages.length ? selectedMessages.map((message) => (
+                    <div key={message.id} className={`messages-bubble ${message.sender}`}>
+                      <p>{toEnglishSafe(message.text)}</p>
+                      <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                    </div>
+                  )) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
+                </div>
+
+                <div className="messages-composer">
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    aria-label="Attach file"
+                    onClick={() => setDraft((prev) => prev ? `${prev} [Attachment]` : '[Attachment]')}
+                  >
+                    <span aria-hidden>⎔</span>
+                  </button>
+                  <input className="input" placeholder="Write a message..." value={draft} onChange={(event) => setDraft(event.target.value)} />
+                  <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim()} onClick={submitMessage}><SendIcon /></button>
+                </div>
+              </article>
+
+              {detailsOpen && (
+                <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
+                  <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
+                  <aside className="messages-details card">
+                    <div className="messages-details-top">
+                      <h3>Details</h3>
+                      <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
+                    </div>
+                    <p className="messages-details-label">Description</p>
+                    <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
+                  </aside>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </section>
     </div>
   )
 }
@@ -1577,7 +1936,7 @@ export const DisputesPage = () => {
               setTimeout(() => {
                 const found = assignRandomCase(staffKey)
                 if (found) {
-                  setSearchResult(`✅ Dispute found: ${found.id}`)
+                  setSearchResult(` Dispute found: ${found.id}`)
                   nav(`/staff/case/${found.id}`)
                 } else {
                   setSearchResult('No dispute found in queue yet.')
@@ -1588,9 +1947,9 @@ export const DisputesPage = () => {
             {searching && <button className="chip" onClick={() => {
               setSearching(false)
               setSearchResult('Search stopped manually.')
-            }}>✖ Stop search</button>}
+            }}> Stop search</button>}
           </div>
-          {searching && <p>⏱️ Searching... {seconds}s</p>}
+          {searching && <p>⏱ Searching... {seconds}s</p>}
           {!!searchResult && <p>{searchResult}</p>}
         </Card>
       )}
@@ -1707,19 +2066,19 @@ export const ProfilePage = () => {
     }
   ]
   const settingsPrimary = [
-    { icon: '🈯', label: 'Язык', value: 'Русский' },
-    { icon: '💲', label: 'Валюта кошелька', value: 'USD' },
-    { icon: '🕒', label: 'Часовой пояс', value: 'UTC+3' },
-    { icon: '🌓', label: 'Тема', value: 'Авто' },
-    { icon: '🛠️', label: 'Настройки биржи', value: '' }
+    { icon: '', label: 'Язык', value: 'Русский' },
+    { icon: '', label: 'Валюта кошелька', value: 'USD' },
+    { icon: '', label: 'Часовой пояс', value: 'UTC+3' },
+    { icon: '', label: 'Тема', value: 'Авто' },
+    { icon: '', label: 'Настройки биржи', value: '' }
   ]
 
   const settingsSecondary = [
-    { icon: '🔗', label: 'Подключенные кошельки', value: '0', description: 'Вы можете привязать свой TON кошелёк, чтобы выводить средства прямо на него' },
-    { icon: '🧾', label: 'Счета', value: 'Перейти' },
-    { icon: '⭐', label: 'Чеки', value: 'Перейти' },
-    { icon: '🧑‍🤝‍🧑', label: 'Реферальная ссылка', value: 'Скопировать' },
-    { icon: '🛟', label: 'Поддержка', value: 'Перейти' }
+    { icon: '', label: 'Подключенные кошельки', value: '0', description: 'Вы можете привязать свой TON кошелёк, чтобы выводить средства прямо на него' },
+    { icon: '', label: 'Счета', value: 'Перейти' },
+    { icon: '', label: 'Чеки', value: 'Перейти' },
+    { icon: '', label: 'Реферальная ссылка', value: 'Скопировать' },
+    { icon: '', label: 'Поддержка', value: 'Перейти' }
   ]
 
   const legalLinks = [
@@ -1768,7 +2127,7 @@ export const ProfilePage = () => {
         <h3>Settings</h3>
         {PROFILE_SETTINGS_PRIMARY.map((item) => (
           <div className="row" key={item.label}>
-            <strong>{item.icon} {item.label}</strong>
+            <strong>{(() => { const Icon = settingsIconMap[item.icon]; return <><Icon className="settings-row-icon" /> {item.label}</> })()}</strong>
             <small>{item.value} ›</small>
           </div>
         ))}
@@ -1777,7 +2136,7 @@ export const ProfilePage = () => {
       <Card>
         <h4>Support</h4>
         <Link className="row" to="/profile/support">
-          <strong>🛟 Open support center</strong>
+          <strong> Open support center</strong>
           <small>Choose complaint, disputes, FAQ and more ›</small>
         </Link>
       </Card>
