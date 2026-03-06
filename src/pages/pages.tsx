@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TonConnectButton } from '@tonconnect/ui-react'
 import { Card } from '../components/Card'
@@ -7,6 +7,7 @@ import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
 import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
+import { ChatPageLayout, ReportModal, type ReportReason } from '../components/chat/ChatLayout'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
 
 
@@ -1255,7 +1256,7 @@ export const ChatPage = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
   const [hasExistingReview, setHasExistingReview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1636,19 +1637,38 @@ export const ChatPage = () => {
 
 
 export const MessagesPage = () => {
-  const { user, orders, offers, disputes, chatMessages, sendOrderMessage } = useApp()
+  const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute } = useApp()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportDetails, setReportDetails] = useState('')
+  const [reportOtherReason, setReportOtherReason] = useState('')
+  const [attachedImage, setAttachedImage] = useState<string | undefined>()
+  const [reportAttachment, setReportAttachment] = useState<string | undefined>()
+  const [peerBlocked, setPeerBlocked] = useState(false)
+  const composerFileRef = useRef<HTMLInputElement>(null)
+  const reportFileRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
-  const toEnglishSafe = (value: string) => /[А-Яа-яЁё]/.test(value) ? 'Message available' : value
+  const [reportReason, setReportReason] = useState<ReportReason>('not_completed')
+
+  const reportReasons: Array<{ value: ReportReason; label: string }> = [
+    { value: 'not_completed', label: 'Seller did not complete the order' },
+    { value: 'no_response', label: 'Seller stopped responding' },
+    { value: 'wrong_item', label: 'Wrong item delivered' },
+    { value: 'fraud', label: 'Fraud / suspicious behavior' },
+    { value: 'order_issue', label: 'Order issue' },
+    { value: 'abuse', label: 'Harassment or abuse' },
+    { value: 'other', label: 'Other' }
+  ]
+
+  const trimSystemPrefix = (value: string) => value.replace(/^[^\wА-Яа-яЁё]+/u, '').trim() || value.trim()
 
   const accessibleOrders = orders.filter((order) => {
-    if (!isArbitrator) {
-      return order.buyerId === user.id || order.sellerId === user.id
-    }
-
+    if (!isArbitrator) return order.buyerId === user.id || order.sellerId === user.id
     return disputes.some((dispute) =>
       dispute.orderId === order.id &&
       isAssignedToStaff(dispute.assignedTo, user.id, user.username) &&
@@ -1664,152 +1684,248 @@ export const MessagesPage = () => {
         (isArbitrator ? isAssignedToStaff(dispute.assignedTo, user.id, user.username) : (order.buyerId === user.id || order.sellerId === user.id))
       )
       const peerId = order.buyerId === user.id ? order.sellerId : order.buyerId
-      const orderMessages = chatMessages
-        .filter((message) => message.orderId === order.id)
-        .sort((a, b) => b.createdAt - a.createdAt)
+      const orderMessages = chatMessages.filter((message) => message.orderId === order.id).sort((a, b) => b.createdAt - a.createdAt)
       const latestMessage = orderMessages[0]
+      const preview = latestMessage
+        ? latestMessage.sender === 'system'
+          ? trimSystemPrefix(latestMessage.text)
+          : latestMessage.text
+        : 'No messages yet'
       const unreadCount = latestMessage && Date.now() - latestMessage.createdAt < 2 * 60 * 60 * 1000 ? 1 : 0
 
       return {
         order,
         offer,
         dispute: orderDispute,
+        peerId,
         title: offer?.title ?? 'Order chat',
         peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `Seller ${peerId}`,
-        preview: toEnglishSafe(latestMessage?.text ?? 'No messages yet'),
+        preview,
         time: latestMessage ? new Date(latestMessage.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
-        unreadCount,
-        hasSupport: Boolean(orderDispute)
+        unreadCount
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
 
-  const visibleThreads = threads
-
-  useEffect(() => {
-    if (!visibleThreads.length) {
-      setSelectedOrderId(null)
-      setDetailsOpen(false)
-      return
-    }
-    if (!selectedOrderId || !visibleThreads.some((thread) => thread.order.id === selectedOrderId)) {
-      setSelectedOrderId(visibleThreads[0].order.id)
-      setDetailsOpen(false)
-    }
-  }, [visibleThreads, selectedOrderId])
-
-  const selectedThread = visibleThreads.find((thread) => thread.order.id === selectedOrderId) ?? null
-
+  const selectedThread = threads.find((thread) => thread.order.id === selectedOrderId) ?? null
   const selectedMessages = selectedThread
-    ? chatMessages
-      .filter((message) => message.orderId === selectedThread.order.id)
-      .sort((a, b) => a.createdAt - b.createdAt)
+    ? chatMessages.filter((message) => message.orderId === selectedThread.order.id).sort((a, b) => a.createdAt - b.createdAt)
     : []
 
   const sender: ChatMessage['sender'] = isArbitrator ? 'arb' : selectedThread?.order.sellerId === user.id ? 'seller' : 'buyer'
+  const blockStorageKey = selectedThread ? `looton_msg_block_${user.id}_${selectedThread.peerId}` : ''
+
+  useEffect(() => {
+    if (!threads.length) {
+      setSelectedOrderId(null)
+      setDetailsOpen(false)
+      setMenuOpen(false)
+      return
+    }
+    if (!selectedOrderId || !threads.some((thread) => thread.order.id === selectedOrderId)) {
+      setSelectedOrderId(threads[0].order.id)
+      setDetailsOpen(false)
+      setMenuOpen(false)
+    }
+  }, [threads, selectedOrderId])
+
+  useEffect(() => {
+    if (!selectedThread || !blockStorageKey) {
+      setPeerBlocked(false)
+      return
+    }
+    setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
+  }, [selectedThread, blockStorageKey])
+
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!menuRef.current || !event.target) return
+      if (!menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const senderLabel = (message: ChatMessage) => {
+    if (!selectedThread) return 'Participant'
+    if (message.sender === 'buyer') return `Buyer ${selectedThread.order.buyerId}`
+    if (message.sender === 'seller') return `Seller ${selectedThread.order.sellerId}`
+    if (message.sender === 'arb') return selectedThread.dispute?.arbitratorAlias || 'Arbitrator'
+    return 'Looton system'
+  }
+
+  const getSystemType = (text: string) => {
+    const normalized = text.toLowerCase()
+    if (normalized.includes('payment') || normalized.includes('secured')) return 'payment'
+    if (normalized.includes('joined')) return 'joined'
+    if (normalized.includes('opened')) return 'opened'
+    if (normalized.includes('updated') || normalized.includes('assigned') || normalized.includes('dispute')) return 'dispute'
+    if (normalized.includes('confirmed')) return 'confirmed'
+    return 'system'
+  }
+
+  const openComposerFile = () => composerFileRef.current?.click()
+
+  const onComposerFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setAttachedImage(typeof reader.result === 'string' ? reader.result : undefined)
+    reader.readAsDataURL(file)
+  }
+
+  const onReportFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setReportAttachment(typeof reader.result === 'string' ? reader.result : undefined)
+    reader.readAsDataURL(file)
+  }
 
   const submitMessage = () => {
-    if (!selectedThread || !draft.trim()) return
-    sendOrderMessage(selectedThread.order.id, sender, draft)
+    const hasPayload = Boolean(draft.trim() || attachedImage)
+    if (!selectedThread || !hasPayload || (peerBlocked && !isArbitrator)) return
+    sendOrderMessage(
+      selectedThread.order.id,
+      sender,
+      draft,
+      sender === 'arb' ? (selectedThread.dispute?.arbitratorAlias || `arb_${user.id}`) : undefined,
+      attachedImage
+    )
     setDraft('')
+    setAttachedImage(undefined)
+    if (composerFileRef.current) composerFileRef.current.value = ''
   }
+
+  const toggleBlockPeer = () => {
+    if (!selectedThread || !blockStorageKey) return
+    const next = !peerBlocked
+    setPeerBlocked(next)
+    localStorage.setItem(blockStorageKey, next ? '1' : '0')
+    setMenuOpen(false)
+  }
+
+  const reasonToDisputeCode = (reason: ReportReason): Dispute['reasonCode'] => {
+    if (reason === 'wrong_item') return 'invalid'
+    if (reason === 'fraud') return 'restored_account'
+    if (reason === 'other') return 'other'
+    return 'not_received'
+  }
+
+  const submitReport = () => {
+    if (!selectedThread || !reportDetails.trim()) return
+    if (reportReason === 'other' && !reportOtherReason.trim()) return
+
+    const selectedReasonLabel = reportReasons.find((reason) => reason.value === reportReason)?.label || 'Order issue'
+    const reportPayload = [
+      `Report reason: ${selectedReasonLabel}`,
+      reportReason === 'other' ? `Other reason: ${reportOtherReason.trim()}` : '',
+      `Description: ${reportDetails.trim()}`,
+      reportAttachment ? 'Screenshot attached.' : ''
+    ].filter(Boolean).join('\n')
+
+    openDispute(selectedThread.order.id, reportPayload, sender === 'seller' ? 'seller' : 'buyer', reasonToDisputeCode(reportReason))
+    setReportOpen(false)
+    setMenuOpen(false)
+    setReportReason('not_completed')
+    setReportDetails('')
+    setReportOtherReason('')
+    setReportAttachment(undefined)
+    if (reportFileRef.current) reportFileRef.current.value = ''
+  }
+
+  const canSendMessage = Boolean((draft.trim() || attachedImage) && (!peerBlocked || isArbitrator))
 
   return (
     <div className="messages-center">
-      <section className="messages-shell">
-        <aside className="messages-list card" aria-label="Conversation list">
-          <div className="messages-list-head">
-            <strong>Messages</strong>
-            <small>{visibleThreads.length} chats</small>
-          </div>
+      <ChatPageLayout
+        threads={threads}
+        selectedOrderId={selectedOrderId}
+        onSelectThread={(orderId) => {
+          setSelectedOrderId(orderId)
+          setDetailsOpen(false)
+          setMenuOpen(false)
+          setReportOpen(false)
+        }}
+        selectedThread={selectedThread}
+        selectedMessages={selectedMessages}
+        sender={sender}
+        senderLabel={senderLabel}
+        getSystemType={getSystemType}
+        trimSystemPrefix={trimSystemPrefix}
+        headerProps={{
+          peer: selectedThread?.peer ?? '',
+          isBlocked: peerBlocked,
+          menuOpen,
+          menuRef,
+          detailsOpen: () => setDetailsOpen(true),
+          onToggleMenu: () => setMenuOpen((prev) => !prev),
+          onReport: () => {
+            setReportOpen(true)
+            setMenuOpen(false)
+          },
+          onToggleBlock: toggleBlockPeer
+        }}
+        composerProps={{
+          composerFileRef,
+          draft,
+          attachedImage,
+          isBlocked: peerBlocked,
+          isArbitrator,
+          canSend: canSendMessage,
+          onDraftChange: setDraft,
+          onDraftInput: (event) => {
+            const el = event.currentTarget
+            el.style.height = 'auto'
+            el.style.height = `${Math.min(el.scrollHeight, 108)}px`
+          },
+          onComposerFile,
+          onOpenComposerFile: openComposerFile,
+          onRemoveAttachment: () => {
+            setAttachedImage(undefined)
+            if (composerFileRef.current) composerFileRef.current.value = ''
+          },
+          onSend: submitMessage
+        }}
+      />
 
-          <div className="messages-list-scroll">
-            {visibleThreads.length ? visibleThreads.map((thread) => {
-              const isActive = thread.order.id === selectedOrderId
-              return (
-                <button
-                  key={thread.order.id}
-                  type="button"
-                  className={`messages-thread ${isActive ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedOrderId(thread.order.id)
-                    setDetailsOpen(false)
-                  }}
-                >
-                  <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
-                  <div className="messages-thread-meta">
-                    <div className="messages-thread-row">
-                      <strong>{thread.peer}</strong>
-                      <small>{thread.time}</small>
-                    </div>
-                    <p>{thread.preview}</p>
-                    <div className="messages-thread-row">
-                      <small>{thread.title}</small>
-                      {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
-                    </div>
-                  </div>
-                </button>
-              )
-            }) : <p className="muted">No conversations yet.</p>}
-          </div>
-        </aside>
-
-        <section className="messages-chat card" aria-label="Chat panel">
-          {!selectedThread ? (
-            <div className="messages-empty-pill">Select a chat to start messaging</div>
-          ) : (
-            <div className="messages-chat-grid">
-              <article className="messages-chat-main">
-                <header className="messages-chat-head">
-                  <div>
-                    <strong>{selectedThread.peer}</strong>
-                    <small>Online</small>
-                  </div>
-                  <button className="btn details-toggle-btn" type="button" onClick={() => setDetailsOpen(true)}>Details</button>
-                </header>
-
-                <div className="messages-chat-scroll">
-                  {selectedMessages.length ? selectedMessages.map((message) => (
-                    <div key={message.id} className={`messages-bubble ${message.sender}`}>
-                      <p>{toEnglishSafe(message.text)}</p>
-                      <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
-                    </div>
-                  )) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
-                </div>
-
-                <div className="messages-composer">
-                  <button
-                    className="icon-btn"
-                    type="button"
-                    aria-label="Attach file"
-                    onClick={() => setDraft((prev) => prev ? `${prev} [Attachment]` : '[Attachment]')}
-                  >
-                    <span aria-hidden>⎔</span>
-                  </button>
-                  <input className="input" placeholder="Write a message..." value={draft} onChange={(event) => setDraft(event.target.value)} />
-                  <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim()} onClick={submitMessage}><SendIcon /></button>
-                </div>
-              </article>
-
-              {detailsOpen && (
-                <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
-                  <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
-                  <aside className="messages-details card">
-                    <div className="messages-details-top">
-                      <h3>Details</h3>
-                      <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
-                    </div>
-                    <p className="messages-details-label">Description</p>
-                    <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
-                  </aside>
-                </div>
-              )}
+      {selectedThread && detailsOpen && (
+        <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Order details">
+          <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)} />
+          <aside className="messages-details card">
+            <div className="messages-details-top">
+              <h3>Details</h3>
+              <button className="icon-btn" type="button" aria-label="Close details" onClick={() => setDetailsOpen(false)}><EllipsisVerticalIcon /></button>
             </div>
-          )}
-        </section>
-      </section>
+            <p className="messages-details-label">Description</p>
+            <div className="messages-details-description">{selectedThread.offer?.description ?? 'Seller description is not available for this order yet.'}</div>
+          </aside>
+        </div>
+      )}
+
+      <ReportModal
+        reportOpen={reportOpen}
+        reportReason={reportReason}
+        reportReasons={reportReasons}
+        reportOtherReason={reportOtherReason}
+        reportDetails={reportDetails}
+        reportAttachment={reportAttachment}
+        reportFileRef={reportFileRef}
+        onClose={() => setReportOpen(false)}
+        onReasonChange={setReportReason}
+        onOtherReasonChange={setReportOtherReason}
+        onDetailsChange={setReportDetails}
+        onReportFile={onReportFile}
+        onOpenUpload={() => reportFileRef.current?.click()}
+        onRemoveAttachment={() => {
+          setReportAttachment(undefined)
+          if (reportFileRef.current) reportFileRef.current.value = ''
+        }}
+        onSubmit={submitReport}
+      />
     </div>
   )
+
 }
 
 export const SellPage = () => {

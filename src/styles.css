@@ -1912,12 +1912,14 @@ textarea.input{
 .messages-center{
   display: grid;
   gap: 12px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .messages-shell{
-  display: grid;
-  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
-  gap: 10px;
+  display: flex;
+  gap: 16px;
   min-height: calc(100dvh - 210px);
 }
 
@@ -1928,6 +1930,8 @@ textarea.input{
 }
 
 .messages-list{
+  width: 350px;
+  flex-shrink: 0;
   padding: 10px;
   gap: 10px;
   display: grid;
@@ -1944,10 +1948,14 @@ textarea.input{
 
 .messages-list-scroll{
   display: grid;
-  gap: 8px;
   overflow-y: auto;
   min-height: 0;
   padding-right: 2px;
+}
+
+.messages-list-stack{
+  display: grid;
+  gap: 8px;
 }
 
 .messages-list-scroll::-webkit-scrollbar{ width: 6px; }
@@ -2032,6 +2040,8 @@ textarea.input{
 }
 
 .messages-chat{
+  flex: 1;
+  min-width: 0;
   padding: 8px;
   overflow: hidden;
   height: 100%;
@@ -2054,6 +2064,7 @@ textarea.input{
   grid-template-rows: auto 1fr auto;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .messages-chat-head{
@@ -2063,27 +2074,69 @@ textarea.input{
   gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(7,11,22,0.92);
+  backdrop-filter: blur(4px);
 }
 
 .messages-chat-head div{ display: grid; }
 .messages-chat-head small{ color: #22c55e; }
 
+.messages-head-actions{
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: auto;
+  position: relative;
+}
+
 .messages-chat-scroll{
   display: grid;
   align-content: start;
-  gap: 8px;
-  padding: 10px;
+  padding: 12px 12px 124px;
   overflow-y: auto;
+  min-height: 0;
+}
+
+.messages-list-viewport{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.messages-bubble-wrap{
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.messages-bubble-wrap.mine{
+  justify-items: end;
+}
+
+.messages-bubble-wrap.system-wrap{
+  justify-items: center;
+}
+
+.messages-sender-name{
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: .02em;
+  color: #94a3b8;
+  padding: 0 4px;
 }
 
 .messages-bubble{
-  max-width: 78%;
+  max-width: min(78%, 560px);
   display: grid;
-  gap: 5px;
-  border-radius: 12px;
+  gap: 6px;
+  border-radius: 14px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(17,24,39,0.72);
-  padding: 8px 10px;
+  padding: 9px 11px;
 }
 
 .messages-bubble.buyer{ margin-left: auto; background: rgba(30,58,138,0.34); }
@@ -2091,8 +2144,68 @@ textarea.input{
 .messages-bubble.arb,
 .messages-bubble.system{ max-width: 92%; background: rgba(55,65,81,0.46); }
 
+.messages-bubble.system-payment,
+.messages-bubble.system-joined,
+.messages-bubble.system-opened,
+.messages-bubble.system-dispute,
+.messages-bubble.system-confirmed,
+.messages-bubble.system-system{
+  max-width: min(88%, 620px);
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(30,41,59,0.62), rgba(15,23,42,0.7));
+  border-color: rgba(148,163,184,0.3);
+}
+
+.messages-bubble.system-payment .messages-system-icon{ color: #38bdf8; }
+.messages-bubble.system-confirmed .messages-system-icon{ color: #4ade80; }
+
 .messages-bubble p{ margin: 0; color: #e5e7eb; }
-.messages-bubble small{ color: #9ca3af; text-align: right; }
+.messages-bubble small{
+  color: #9ca3af;
+  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.messages-system-icon{
+  width: 16px;
+  height: 16px;
+  color: #93c5fd;
+}
+
+.messages-system-icon svg,
+.msg-state-icon{
+  width: 14px;
+  height: 14px;
+}
+
+.msg-state-icon{
+  color: #93c5fd;
+}
+
+.messages-meta-note{
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.messages-chat-body{
+  position: relative;
+  min-height: 0;
+  height: 100%;
+}
+
+.messages-composer-overlay{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 10px 10px;
+  pointer-events: none;
+}
 
 .messages-composer{
   display: grid;
@@ -2100,13 +2213,63 @@ textarea.input{
   gap: 8px;
   align-items: center;
   padding: 8px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  background: rgba(2,8,23,0.74);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -12px 28px rgba(2,6,23,0.35);
+  pointer-events: auto;
+}
+
+.messages-compose-input-wrap{ display: grid; gap: 4px; }
+
+.messages-compose-input{
+  resize: none;
+  min-height: 38px;
+  max-height: 108px;
+  line-height: 1.35;
+}
+
+.messages-composer .icon-btn svg,
+.messages-report-attach svg,
+.messages-menu-item svg{
+  width: 16px;
+  height: 16px;
 }
 
 .details-toggle-btn{
   height: 36px;
   padding: 0 14px;
   border-radius: 10px;
+}
+
+.messages-menu{
+  position: absolute;
+  top: calc(100% - 2px);
+  right: 0;
+  min-width: 180px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  z-index: 3;
+}
+
+.messages-menu-item{
+  border: 1px solid transparent;
+  background: rgba(15,23,42,0.7);
+  color: #e2e8f0;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.messages-menu-item:hover{
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(30,41,59,0.6);
 }
 
 .messages-details-modal{
@@ -2138,6 +2301,40 @@ textarea.input{
   grid-template-rows: auto auto 1fr;
   gap: 8px;
   padding: 12px;
+}
+
+.messages-report{
+  position: relative;
+  z-index: 1;
+  width: min(420px, 94%);
+  margin: 8px;
+  pointer-events: auto;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.messages-attachment-row{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.messages-link-btn{
+  border: 0;
+  background: transparent;
+  color: #93c5fd;
+  font-size: 12px;
+  padding: 0;
+}
+
+.messages-link-btn:hover{
+  color: #bfdbfe;
+  text-decoration: underline;
+}
+
+.messages-report-attach{
+  justify-content: center;
 }
 
 .messages-details-top{
@@ -2180,11 +2377,12 @@ textarea.input{
 }
 
 @media (max-width: 1180px){
-  .messages-shell{ grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+  .messages-list{ width: 320px; }
 }
 
 @media (max-width: 960px){
-  .messages-shell{ grid-template-columns: 1fr; }
+  .messages-shell{ display: grid; grid-template-columns: 1fr; }
+  .messages-list{ width: 100%; }
   .messages-list,
   .messages-chat,
   .messages-chat-main{ min-height: 360px; }
