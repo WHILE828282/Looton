@@ -6,22 +6,9 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, EllipsisVerticalIcon, MoonIcon, SearchIcon, SendIcon } from '../icons1/UiIcons'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
-
-const IconBase = ({ children }: { children: ReactElement | ReactElement[] }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    {children}
-  </svg>
-)
-
-const ArrowLeftIcon = () => <IconBase><path d="m15 18-6-6 6-6" /><path d="M21 12H9" /></IconBase>
-const SearchIcon = () => <IconBase><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></IconBase>
-const MoonIcon = () => <IconBase><path d="M12 3a7.5 7.5 0 1 0 9 9A9 9 0 1 1 12 3" /></IconBase>
-const EllipsisVerticalIcon = () => <IconBase><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></IconBase>
-const SendIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-const CheckIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m20 6-11 11-5-5" /></svg>
-const CheckDoubleIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m18 7-8 8-4-4" /><path d="m22 7-8 8" /></svg>
 
 type SellForm = {
   gameId: string
