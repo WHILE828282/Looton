@@ -6,8 +6,9 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, WalletIcon } from '../icons1/UiIcons'
-import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
+
 
 
 type SellForm = {
@@ -842,13 +843,16 @@ export const OffersPage = () => {
   )
 }
 
-const StarRating = ({ rating }: { rating: NonNullable<ProductChatMessage['rating']> }) => (
-  <div className="chat-stars" aria-label={`Rating ${rating} out of 5`}>
-    {Array.from({ length: 5 }).map((_, index) => (
-      <StarIcon key={index} className={index < rating ? 'active' : ''} />
-    ))}
-  </div>
-)
+const StarRating = ({ rating = null }: { rating?: ProductChatMessage['rating'] | null }) => {
+  const safeRating = Math.max(0, Math.min(5, Math.round(rating ?? 0)))
+  return (
+    <div className="chat-stars" aria-label={`Rating ${safeRating} out of 5`}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <StarIcon key={index} className={index < safeRating ? 'active' : ''} />
+      ))}
+    </div>
+  )
+}
 
 const formatChatDayLabel = (dateIso: string) => {
   const date = new Date(dateIso)
@@ -859,7 +863,10 @@ const ChatBubble = ({ message, compact }: { message: ProductChatMessage; compact
   <article className={`chat-message-row ${message.author === 'seller' ? 'seller' : 'buyer'} ${compact ? 'compact' : ''}`}>
     <div className={`chat-message-bubble ${message.author === 'seller' ? 'seller' : 'buyer'}`}>
       {message.orderMeta && (
-        <p className="chat-order-meta">{message.orderMeta.productLabel}, {message.orderMeta.priceRub} ₽</p>
+        <p className="chat-order-meta review-order-meta">
+          <span>{message.orderMeta.productLabel}</span>
+          <span className="ton-amount"><span>{Math.max(1, Math.round(message.orderMeta.priceRub / 50))}</span> <TonIcon className="ton-inline-icon" /> TON</span>
+        </p>
       )}
       {message.rating && <StarRating rating={message.rating} />}
       <p className="chat-message-text">{message.text}</p>
@@ -888,6 +895,7 @@ export const OfferDetailsPage = () => {
   const currentOffer = offers.find((item) => item.id === offerId)
   const [product, setProduct] = useState<Product | null>(null)
   const [messages, setMessages] = useState<ProductChatMessage[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [isProductLoading, setIsProductLoading] = useState(true)
   const [isChatLoading, setIsChatLoading] = useState(false)
@@ -917,8 +925,7 @@ export const OfferDetailsPage = () => {
     const page = await productApi.getChatMessages({
       id: offerId,
       cursor: nextCursor,
-      limit: 12,
-      productLabel: currentOffer?.title
+      limit: 12
     })
 
     setMessages((prev) => [...page.items, ...prev])
@@ -939,8 +946,7 @@ export const OfferDetailsPage = () => {
       const page = await productApi.getChatMessages({
         id: offerId,
         cursor: null,
-        limit: 12,
-        productLabel: currentOffer?.title
+        limit: 12
       })
       if (!active) return
       setMessages(page.items)
@@ -960,6 +966,19 @@ export const OfferDetailsPage = () => {
   }, [offerId, currentOffer?.title])
 
   useEffect(() => {
+    let active = true
+    const loadReviews = async () => {
+      const data = await productApi.getReviews({ offerId })
+      if (!active) return
+      setReviews(data)
+    }
+    void loadReviews()
+    return () => {
+      active = false
+    }
+  }, [offerId])
+
+  useEffect(() => {
     if (!topSentinelRef.current || !messagesRef.current) return
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) void loadOlderMessages()
@@ -970,20 +989,8 @@ export const OfferDetailsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesRef, topSentinelRef, nextCursor, isChatLoading, offerId])
 
-  const showDaySeparator = (index: number) => {
-    if (index === 0) return true
-    return formatChatDayLabel(messages[index - 1].createdAt) !== formatChatDayLabel(messages[index].createdAt)
-  }
 
-  const conversationMessages = useMemo(
-    () => messages.filter((message) => !message.rating && !message.orderMeta),
-    [messages]
-  )
-
-  const reviewMessages = useMemo(
-    () => messages.filter((message) => Boolean(message.rating || message.orderMeta)),
-    [messages]
-  )
+  const conversationMessages = messages
 
   const showConversationDaySeparator = (index: number) => {
     if (index === 0) return true
@@ -992,7 +999,7 @@ export const OfferDetailsPage = () => {
 
   const shouldShowSellerTrustCard = conversationMessages.length === 0
   const sellerPreviewStars = Math.max(1, Math.min(5, Math.round(currentOffer?.sellerStats.rating ?? 5)))
-  const sellerReviewCount = reviewMessages.length
+  const sellerReviewCount = reviews.length
   const sellerCompletionRate = Math.max(90, Math.min(100, Math.round(((currentOffer?.sellerStats.rating ?? 5) / 5) * 1000) / 10))
 
   const onSend = () => {
@@ -1102,13 +1109,19 @@ export const OfferDetailsPage = () => {
 
       <section className="product-block product-reviews">
         <h3>Reviews</h3>
-        {reviewMessages.length ? reviewMessages.map((message) => (
-          <article className="review-item" key={`review-${message.id}`}>
-            {message.rating && <StarRating rating={message.rating} />}
-            {message.orderMeta && <p className="chat-order-meta">{message.orderMeta.productLabel}, {message.orderMeta.priceRub} ₽</p>}
-            <p className="chat-message-text">{message.text}</p>
-          </article>
-        )) : <p className="muted">No reviews yet.</p>}
+        {reviews.length ? reviews.map((review) => {
+          const amountTon = Math.max(1, Math.round(review.priceRub / 50))
+          return (
+            <article className="review-item" key={review.id}>
+              <StarRating rating={review.rating} />
+              <p className="chat-order-meta review-order-meta">
+                <span>{review.productLabel}</span>
+                <span className="ton-amount"><span>{amountTon}</span> <TonIcon className="ton-inline-icon" /> TON</span>
+              </p>
+              <p className="chat-message-text">{review.text}</p>
+            </article>
+          )
+        }) : <p className="muted">No reviews yet.</p>}
       </section>
     </div>
   )
@@ -1236,6 +1249,11 @@ export const ChatPage = () => {
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const [expandedDescription, setExpandedDescription] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [reviewRating, setReviewRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null)
+  const [reviewText, setReviewText] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
+  const [hasExistingReview, setHasExistingReview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const order = orders.find((o) => o.id === orderId)
@@ -1261,6 +1279,8 @@ export const ChatPage = () => {
   const peerLabel = sender === 'buyer' ? `seller_${order.sellerId}` : `buyer_${order.buyerId}`
   const blockStorageKey = `looton_block_peer_${user.id}_${peerId}`
   const [peerBlocked, setPeerBlocked] = useState(() => localStorage.getItem(blockStorageKey) === '1')
+  const canLeaveReview = sender === 'buyer' && ['confirmed', 'auto_confirmed'].includes(order.status)
+  const showReviewComposer = canLeaveReview && !hasExistingReview && !reviewSubmitted
 
   if (!canAccessChat) {
     return (
@@ -1325,6 +1345,51 @@ export const ChatPage = () => {
   useEffect(() => {
     setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
   }, [blockStorageKey])
+
+  useEffect(() => {
+    let active = true
+    if (!canLeaveReview || !offer) {
+      setHasExistingReview(false)
+      return () => {
+        active = false
+      }
+    }
+
+    const checkReview = async () => {
+      const exists = await productApi.hasReviewForOrder({ offerId: offer.id, orderId: order.id })
+      if (!active) return
+      setHasExistingReview(exists)
+    }
+
+    void checkReview()
+    return () => {
+      active = false
+    }
+  }, [canLeaveReview, offer, order.id])
+
+  const submitOrderReview = async () => {
+    if (!offer || !canLeaveReview) return
+    if (reviewRating === null) return
+    const text = reviewText.trim()
+    if (!text) return
+    setReviewSubmitting(true)
+    try {
+      await productApi.submitReview({
+        offerId: offer.id,
+        orderId: order.id,
+        productLabel: offerTitle,
+        amountTon: order.amountTon,
+        rating: reviewRating,
+        text
+      })
+      setReviewSubmitted(true)
+      setHasExistingReview(true)
+      setReviewText('')
+      setReviewRating(null)
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
 
   const togglePeerBlock = () => {
     const next = !peerBlocked
@@ -1464,6 +1529,41 @@ export const ChatPage = () => {
               <button className="chip" onClick={() => setReportOpen(false)}>Cancel</button>
             </div>
           </div>
+        )}
+
+        {showReviewComposer && (
+          <section className="chat-review-composer" aria-label="Leave seller review">
+            <h4>Order completed. Leave a review for {peerLabel}</h4>
+            <p>Your rating helps other buyers choose reliable sellers.</p>
+            <div className="chat-review-stars" role="radiogroup" aria-label="Choose a rating">
+              {([1, 2, 3, 4, 5] as const).map((value) => (
+                <button
+                  key={`review-star-${value}`}
+                  className={`icon-btn review-star-btn ${(reviewRating ?? 0) >= value ? 'active' : ''}`}
+                  type="button"
+                  aria-label={`Rate ${value} star${value > 1 ? 's' : ''}`}
+                  aria-pressed={(reviewRating ?? 0) >= value}
+                  onClick={() => setReviewRating(value)}
+                >
+                  <StarIcon />
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="input"
+              placeholder="What did you like about this order?"
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              rows={3}
+            />
+            <button className="btn" type="button" disabled={reviewSubmitting || reviewRating === null || !reviewText.trim()} onClick={() => void submitOrderReview()}>
+              {reviewSubmitting ? 'Submitting review…' : 'Submit review'}
+            </button>
+          </section>
+        )}
+
+        {canLeaveReview && hasExistingReview && (
+          <div className="chat-review-success">Your review for this completed order is already published.</div>
         )}
 
         <div className="chat-input-bar">
