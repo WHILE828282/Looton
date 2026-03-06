@@ -6,27 +6,27 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const categoryDetails: Record<OfferCategory, { categoryTitle: string; description: string }> = {
   currency: {
     categoryTitle: 'Game Currency',
-    description: '⚡ Fast balance top-ups with clear transfer instructions and delivery confirmation in chat.'
+    description: ' Fast balance top-ups with clear transfer instructions and delivery confirmation in chat.'
   },
   items: {
     categoryTitle: 'In-game Items',
-    description: '🎁 Safe item transfer flow with proof steps and quick support directly in the seller chat.'
+    description: ' Safe item transfer flow with proof steps and quick support directly in the seller chat.'
   },
   accounts: {
     categoryTitle: 'Game Accounts',
-    description: '🔐 Account transfer with secure handover checklist and post-delivery confirmation.'
+    description: ' Account transfer with secure handover checklist and post-delivery confirmation.'
   },
   services: {
     categoryTitle: 'Game Services',
-    description: '🛠️ Service orders with transparent progress updates and agreed completion milestones.'
+    description: ' Service orders with transparent progress updates and agreed completion milestones.'
   },
   subscriptions: {
     categoryTitle: 'Subscriptions',
-    description: '📦 Subscription activation workflow with expected activation time and support guidance.'
+    description: ' Subscription activation workflow with expected activation time and support guidance.'
   },
   gifts: {
     categoryTitle: 'Digital Gifts',
-    description: '🎉 Gift delivery with recipient verification and instant status updates in chat.'
+    description: ' Gift delivery with recipient verification and instant status updates in chat.'
   }
 }
 
@@ -60,7 +60,7 @@ const buildProduct = (params: { id: string; fallbackTitle?: string; category?: O
     stockText: 'Live stock available',
     deliveryTimeText: '1 minute – 1 day',
     category: category?.categoryTitle ?? 'Marketplace Goods',
-    sellerDescription: category?.description ?? '💬 Contact seller before payment for the fastest and safest delivery.'
+    sellerDescription: category?.description ?? ' Contact seller before payment for the fastest and safest delivery.'
   }
 }
 

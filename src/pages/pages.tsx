@@ -6,7 +6,7 @@ import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
-import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, EllipsisVerticalIcon, MoonIcon, SearchIcon, SendIcon } from '../icons1/UiIcons'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, EllipsisVerticalIcon, MoonIcon, SearchIcon, SendIcon, StarIcon } from '../icons1/UiIcons'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
 
@@ -22,9 +22,9 @@ type SellForm = {
 
 
 
-const DISPUTE_POLICY = `🔒 Dispute & Appeal Policy (Looton)
+const DISPUTE_POLICY = ` Dispute & Appeal Policy (Looton)
 
-📌 What happens after a dispute is opened?
+ What happens after a dispute is opened?
 
 If a dispute is opened for your order:
 • The transaction is immediately frozen.
@@ -32,7 +32,7 @@ If a dispute is opened for your order:
 • An independent Looton arbitrator is assigned.
 • Both parties must provide evidence (screenshots, transaction IDs, chat history, delivery proof).
 
-⚠️ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
+ Important: If the seller did not fulfill the order, do not cancel the dispute before the final arbitrator decision.`
 
 const COMPLETE_ORDER_WARNING = `Confirm Order Completion
 
@@ -43,12 +43,12 @@ If you confirm:
 • Payment is released to the seller.
 • You may lose the ability to dispute this order.
 
-✅ Confirm ONLY if you have:
+ Confirm ONLY if you have:
 • received the item/service in full,
 • verified access/ownership (accounts/keys/subscriptions),
 • checked that everything matches the listing.
 
-❌ Do NOT confirm if:
+ Do NOT confirm if:
 • delivery is pending,
 • the item is incorrect/partial,
 • you were asked to confirm “in advance”.
@@ -65,7 +65,7 @@ If you cancel:
 • escrow may be released according to the current order state,
 • reopening may be impossible.
 
-❌ If the order is not fully delivered, DO NOT cancel.
+ If the order is not fully delivered, DO NOT cancel.
 Wait for the assigned arbitrator and provide evidence.`
 
 const APPEAL_CONFIRM_STEPS = [
@@ -92,15 +92,15 @@ const StatusBadge = ({ status }: { status: OrderStatus }) => (
 )
 
 const FAQ_SECTIONS = [
-  '📜 Looton Platform Rules',
-  '⚠️ Confirmation popup before completing an order',
-  '⚠️ Warning popup before canceling a dispute',
-  '📜 Terms of Service (legal-style)',
-  '📜 Seller Agreement',
-  '📜 Arbitration Rules'
+  'Looton Platform Rules',
+  'Confirmation popup before completing an order',
+  'Warning popup before canceling a dispute',
+  'Terms of Service (legal-style)',
+  'Seller Agreement',
+  'Arbitration Rules'
 ] as const
 
-const LOOTON_PLATFORM_RULES = `📜 Looton Platform Rules
+const LOOTON_PLATFORM_RULES = `Looton Platform Rules
 
 1. General Provisions
 
@@ -492,11 +492,11 @@ const isAssignedToStaff = (assignedTo: string | undefined, userId: number, usern
 const gameIconSrc = (gameId?: string) => games.find((g) => g.id === gameId)?.iconUrl ?? '/icon.svg'
 
 const PROFILE_SETTINGS_PRIMARY = [
-  { icon: '🌐', label: 'Language', value: 'English' },
-  { icon: '💲', label: 'Wallet currency', value: 'USD' },
-  { icon: '🕒', label: 'Timezone', value: 'UTC+3' },
-  { icon: '🌓', label: 'Theme', value: 'Auto' },
-  { icon: '🛠️', label: 'Exchange settings', value: 'Open' }
+  { icon: '', label: 'Language', value: 'English' },
+  { icon: '', label: 'Wallet currency', value: 'USD' },
+  { icon: '', label: 'Timezone', value: 'UTC+3' },
+  { icon: '', label: 'Theme', value: 'Auto' },
+  { icon: '', label: 'Exchange settings', value: 'Open' }
 ] as const
 
 const PROFILE_LEGAL_LINKS = [
@@ -553,7 +553,7 @@ const OfferRow = ({ offer }: { offer: Offer }) => (
   <Link to={`/offer/${offer.id}`} className="row">
     <strong>{offer.title}</strong>
     <span>{offer.priceTon} TON</span>
-    <small>{payoutBadge(offer)} · ⭐ {offer.sellerStats.rating} · {offer.sellerStats.depositTon} TON deposit</small>
+    <small>{payoutBadge(offer)} · <StarIcon className="inline-star-icon" /> {offer.sellerStats.rating} · {offer.sellerStats.depositTon} TON deposit</small>
   </Link>
 )
 
@@ -661,7 +661,7 @@ export const HomePage = () => {
       </Card>
 
       <Card>
-        <h3>Trending 🔥</h3>
+        <h3>Trending </h3>
         <div className="trending-scroll">
           {trendingSections.map((section, index) => (
             <Link key={section.id} className={`trending-item ${index === 0 ? 'active' : ''}`} to={section.to}>
@@ -824,7 +824,7 @@ export const OffersPage = () => {
           <Link key={o.id} to={`/offer/${o.id}`} className="row">
             <strong>{o.title}</strong>
             <small className="offer-meta">
-              ⭐ {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
+              <StarIcon className="inline-star-icon" /> {o.sellerStats.rating} · {o.deliveryType} · {payoutBadge(o)} · Deposit {o.sellerStats.depositTon} TON
             </small>
             <span>{o.priceTon} TON</span>
           </Link>
@@ -837,7 +837,7 @@ export const OffersPage = () => {
 const StarRating = ({ rating }: { rating: NonNullable<ProductChatMessage['rating']> }) => (
   <div className="chat-stars" aria-label={`Rating ${rating} out of 5`}>
     {Array.from({ length: 5 }).map((_, index) => (
-      <span key={index} className={index < rating ? 'active' : ''}>★</span>
+      <span key={index} className={index < rating ? 'active' : ''}></span>
     ))}
   </div>
 )
@@ -1391,7 +1391,7 @@ export const ChatPage = () => {
         </div>
 
         {peerBlocked && !canModerateChat && (
-          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in ☰ menu to continue messaging.</div>
+          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in chat menu to continue messaging.</div>
         )}
 
         {reportOpen && (
@@ -1478,7 +1478,7 @@ export const ChatPage = () => {
             <li><span>Amount</span><strong className="deal-amount">{order.amountTon} TON</strong></li>
             <li><span>Status</span><strong className="deal-status-text">{orderStatusLabel}</strong></li>
           </ul>
-          <div className="deal-summary-note">⚠️ Never transfer funds outside the platform.</div>
+          <div className="deal-summary-note"> Never transfer funds outside the platform.</div>
         </aside>
       </div>
     </div>
@@ -1673,7 +1673,7 @@ export const DisputesPage = () => {
               setTimeout(() => {
                 const found = assignRandomCase(staffKey)
                 if (found) {
-                  setSearchResult(`✅ Dispute found: ${found.id}`)
+                  setSearchResult(` Dispute found: ${found.id}`)
                   nav(`/staff/case/${found.id}`)
                 } else {
                   setSearchResult('No dispute found in queue yet.')
@@ -1684,9 +1684,9 @@ export const DisputesPage = () => {
             {searching && <button className="chip" onClick={() => {
               setSearching(false)
               setSearchResult('Search stopped manually.')
-            }}>✖ Stop search</button>}
+            }}> Stop search</button>}
           </div>
-          {searching && <p>⏱️ Searching... {seconds}s</p>}
+          {searching && <p>⏱ Searching... {seconds}s</p>}
           {!!searchResult && <p>{searchResult}</p>}
         </Card>
       )}
@@ -1803,19 +1803,19 @@ export const ProfilePage = () => {
     }
   ]
   const settingsPrimary = [
-    { icon: '🈯', label: 'Язык', value: 'Русский' },
-    { icon: '💲', label: 'Валюта кошелька', value: 'USD' },
-    { icon: '🕒', label: 'Часовой пояс', value: 'UTC+3' },
-    { icon: '🌓', label: 'Тема', value: 'Авто' },
-    { icon: '🛠️', label: 'Настройки биржи', value: '' }
+    { icon: '', label: 'Язык', value: 'Русский' },
+    { icon: '', label: 'Валюта кошелька', value: 'USD' },
+    { icon: '', label: 'Часовой пояс', value: 'UTC+3' },
+    { icon: '', label: 'Тема', value: 'Авто' },
+    { icon: '', label: 'Настройки биржи', value: '' }
   ]
 
   const settingsSecondary = [
-    { icon: '🔗', label: 'Подключенные кошельки', value: '0', description: 'Вы можете привязать свой TON кошелёк, чтобы выводить средства прямо на него' },
-    { icon: '🧾', label: 'Счета', value: 'Перейти' },
-    { icon: '⭐', label: 'Чеки', value: 'Перейти' },
-    { icon: '🧑‍🤝‍🧑', label: 'Реферальная ссылка', value: 'Скопировать' },
-    { icon: '🛟', label: 'Поддержка', value: 'Перейти' }
+    { icon: '', label: 'Подключенные кошельки', value: '0', description: 'Вы можете привязать свой TON кошелёк, чтобы выводить средства прямо на него' },
+    { icon: '', label: 'Счета', value: 'Перейти' },
+    { icon: '', label: 'Чеки', value: 'Перейти' },
+    { icon: '', label: 'Реферальная ссылка', value: 'Скопировать' },
+    { icon: '', label: 'Поддержка', value: 'Перейти' }
   ]
 
   const legalLinks = [
@@ -1873,7 +1873,7 @@ export const ProfilePage = () => {
       <Card>
         <h4>Support</h4>
         <Link className="row" to="/profile/support">
-          <strong>🛟 Open support center</strong>
+          <strong> Open support center</strong>
           <small>Choose complaint, disputes, FAQ and more ›</small>
         </Link>
       </Card>

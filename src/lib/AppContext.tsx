@@ -91,7 +91,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId: order.id,
       sender: 'system',
-      text: '✅ Buyer payment confirmed. Funds are secured in escrow.',
+      text: ' Buyer payment confirmed. Funds are secured in escrow.',
       createdAt: now
     })
 
@@ -141,7 +141,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId,
       sender: 'system',
-      text: '⚖️ Dispute opened. Assigned arbitrator will join this chat now.',
+      text: ' Dispute opened. Assigned arbitrator will join this chat now.',
       createdAt: now
     })
 
@@ -149,7 +149,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId,
       sender: 'system',
-      text: `⚖️ Dispute ${dispute.id} assigned to arbitrator ${autoAssignedAlias}.`,
+      text: ` Dispute ${dispute.id} assigned to arbitrator ${autoAssignedAlias}.`,
       createdAt: now + 1
     })
 
@@ -186,7 +186,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId: pick.orderId,
       sender: 'system',
-      text: `⚖️ Dispute ${pick.id} assigned to arbitrator ${defaultAlias}.`,
+      text: ` Dispute ${pick.id} assigned to arbitrator ${defaultAlias}.`,
       createdAt: Date.now()
     })
 
@@ -223,7 +223,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
         id: uid('chat'),
         orderId: dispute.orderId,
         sender: 'system',
-        text: `✅ Dispute resolved: ${winner} wins. Reason: ${text.trim() || 'Decision submitted.'}`,
+        text: ` Dispute resolved: ${winner} wins. Reason: ${text.trim() || 'Decision submitted.'}`,
         createdAt: Date.now()
       })
 
@@ -273,7 +273,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
         id: uid('chat'),
         orderId: escalatedOrderId,
         sender: 'system',
-        text: '📌 Dispute was escalated to the next arbitration level after appeal.',
+        text: ' Dispute was escalated to the next arbitration level after appeal.',
         createdAt: Date.now()
       })
     }
@@ -304,7 +304,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId: target.orderId,
       sender: 'system',
-      text: '⚠️ Dispute cancelled. Escrow protection was stopped by user action.',
+      text: ' Dispute cancelled. Escrow protection was stopped by user action.',
       createdAt: Date.now()
     })
   }
@@ -336,7 +336,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
 
     const alias = arbAlias.trim() || 'Arbitrator'
 
-    const joinEventText = `⚖️ Arbitrator ${alias} joined the dispute chat.`
+    const joinEventText = ` Arbitrator ${alias} joined the dispute chat.`
     const alreadyJoined = chatMessages.some(
       (item) => item.orderId === target.orderId && item.sender === 'system' && item.text === joinEventText
     )
@@ -441,7 +441,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
       id: uid('chat'),
       orderId: target.orderId,
       sender: 'system',
-      text: `⚠️ Arbitrator declined dispute ${target.id}. Reason: ${reason}`,
+      text: ` Arbitrator declined dispute ${target.id}. Reason: ${reason}`,
       createdAt: now
     })
 
@@ -450,7 +450,7 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
         id: uid('chat'),
         orderId: target.orderId,
         sender: 'system',
-        text: `⚠️ Arbitrator warning issued (+${warningIncrement}). Total warnings: ${nextWarnings}.`,
+        text: ` Arbitrator warning issued (+${warningIncrement}). Total warnings: ${nextWarnings}.`,
         createdAt: now
       })
     }

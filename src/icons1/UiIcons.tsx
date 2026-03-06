@@ -21,3 +21,5 @@ export const DisputesIcon = () => <IconBase><path d="m16 16 3 3 3-3"/><path d="M
 export const QueueIcon = () => <IconBase><circle cx="12" cy="12" r="10"/><path d="m12 6 4 6-4 6-4-6 4-6z"/></IconBase>
 export const ChatsIcon = () => <IconBase><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></IconBase>
 export const ProfileIcon = () => <IconBase><circle cx="12" cy="8" r="4"/><path d="M6 20a6 6 0 0 1 12 0"/></IconBase>
+
+export const StarIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
