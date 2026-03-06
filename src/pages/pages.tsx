@@ -8,6 +8,21 @@ import { useApp } from '../lib/AppContext'
 import { productApi } from '../lib/productApi'
 import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Role } from '../types'
 
+
+const IconBase = ({ children }: { children: ReactElement | ReactElement[] }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    {children}
+  </svg>
+)
+
+const ArrowLeftIcon = () => <IconBase><path d="m15 18-6-6 6-6" /><path d="M21 12H9" /></IconBase>
+const SearchIcon = () => <IconBase><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></IconBase>
+const MoonIcon = () => <IconBase><path d="M12 3a7.5 7.5 0 1 0 9 9A9 9 0 1 1 12 3" /></IconBase>
+const EllipsisVerticalIcon = () => <IconBase><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></IconBase>
+const SendIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+const CheckIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m20 6-11 11-5-5" /></svg>
+const CheckDoubleIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m18 7-8 8-4-4" /><path d="m22 7-8 8" /></svg>
+
 type SellForm = {
   gameId: string
   category: OfferCategory
@@ -990,12 +1005,12 @@ export const OfferDetailsPage = () => {
   return (
     <div className="product-page">
       <header className="product-header">
-        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back">←</button>
+        <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
         <h2>{currentOffer?.title ?? product.title}</h2>
         <div className="product-header-actions">
-          <button className="icon-btn" aria-label="Search">⌕</button>
-          <button className="icon-btn" aria-label="Theme">☾</button>
-          <button className="icon-btn" aria-label="Menu">☰</button>
+          <button className="icon-btn" aria-label="Search"><SearchIcon /></button>
+          <button className="icon-btn" aria-label="Theme"><MoonIcon /></button>
+          <button className="icon-btn" aria-label="Menu"><EllipsisVerticalIcon /></button>
         </div>
       </header>
 
@@ -1017,7 +1032,7 @@ export const OfferDetailsPage = () => {
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
-          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+          <button className="seller-chat-icons" aria-label="Chat menu"><EllipsisVerticalIcon /></button>
         </div>
 
         <div className="chat-messages" ref={messagesRef}>
@@ -1056,7 +1071,7 @@ export const OfferDetailsPage = () => {
             placeholder="Write a message..."
           />
           <button className="btn chat-send-btn" type="button" onClick={onSend} disabled={!chatInput.trim()}>
-            ➤
+            <SendIcon />
           </button>
         </div>
       </section>
@@ -1290,10 +1305,23 @@ export const ChatPage = () => {
     { value: 'other', label: 'Other issue' }
   ]
 
+  const getOwnMessageState = (message: ChatMessage, index: number): 'sent' | 'delivered' | 'read' => {
+    const nextForeignReply = messages.slice(index + 1).find((item) => item.sender !== message.sender && item.sender !== 'system')
+    if (nextForeignReply) return 'read'
+    if (Date.now() - message.createdAt > 15_000) return 'delivered'
+    return 'sent'
+  }
+
+  const readStateLabel: Record<'sent' | 'delivered' | 'read', string> = {
+    sent: 'Sent',
+    delivered: 'Delivered',
+    read: 'Read'
+  }
+
   return (
     <div className="order-chat-mobile">
       <header className="product-header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back">←</button>
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
         <h2>{offerTitle}</h2>
         <div className="product-header-actions" />
       </header>
@@ -1320,14 +1348,14 @@ export const ChatPage = () => {
         <section className="seller-chat-screen">
         <div className="seller-chat-top">
           <div className="seller-chat-identity">
-            <span className="seller-avatar">{`S`}</span>
+            <span className="seller-avatar">{`S`}<span className="seller-avatar-presence" aria-hidden /></span>
             <div>
               <p className="seller-chat-name">seller_{order.sellerId}</p>
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
           <div className="chat-menu-wrap" ref={menuRef}>
-            <button className="seller-chat-icons" aria-label="Chat menu" onClick={() => setMenuOpen((v) => !v)}>☰</button>
+            <button className="seller-chat-icons" aria-label="Chat menu" onClick={() => setMenuOpen((v) => !v)}><EllipsisVerticalIcon /></button>
             {menuOpen && (
               <div className="chat-menu card">
                 <button className="chat-menu-item" onClick={() => {
@@ -1347,6 +1375,7 @@ export const ChatPage = () => {
         <div className="chat-messages">
           {groupedMessages.length ? groupedMessages.map(({ message, isGroupStart, isGroupEnd }, index) => {
             const isMine = (sender === 'buyer' && message.sender === 'buyer') || (sender === 'seller' && message.sender === 'seller') || (sender === 'arb' && message.sender === 'arb')
+            const ownState = isMine && message.sender !== 'system' ? getOwnMessageState(message, index) : undefined
             const label = message.sender === 'system' ? 'System' : message.sender === 'buyer' ? `buyer_${order.buyerId}` : message.sender === 'seller' ? `seller_${order.sellerId}` : `Arbitrator ${message.arbAlias ?? ''}`.trim()
             return (
               <div key={message.id} className={`msg-row ${isMine ? 'mine' : ''} ${isGroupStart ? 'group-start' : 'group-middle'} ${isGroupEnd ? 'group-end' : ''}`}>
@@ -1358,7 +1387,16 @@ export const ChatPage = () => {
                   {message.sender === 'system' && <small className="msg-author">{label}</small>}
                   <p>{message.text}</p>
                   {message.imageUrl && <img src={message.imageUrl} alt="Chat attachment" className="chat-attachment" />}
-                  <small className="msg-time">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                  <small className="msg-time">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {ownState && (
+                      <span className={`msg-read msg-read-${ownState}`}>
+                        {ownState === 'sent' ? <CheckIcon className="msg-read-icon" /> : <CheckDoubleIcon className="msg-read-icon" />}
+                        {' '}
+                        {readStateLabel[ownState]}
+                      </span>
+                    )}
+                  </small>
                 </div>
               </div>
             )
