@@ -923,6 +923,16 @@ textarea.input{
   gap: 8px;
   border-radius: var(--radius-item);
 }
+
+.chat-menu-item.danger{
+  border-color: rgba(248,113,113,0.35);
+  color: #fecaca;
+}
+.chat-menu-item.danger:hover{
+  border-color: rgba(248,113,113,0.55);
+  background: rgba(127,29,29,0.35);
+}
+
 .product-page{
   max-width: 760px;
   margin: 0 auto;
@@ -1155,10 +1165,108 @@ textarea.input{
 }
 
 .order-chat-mobile{
-  width: min(430px, 100%);
+  width: min(1200px, 100%);
   margin: 0 auto;
   display: grid;
   gap: 12px;
+}
+
+.order-chat-layout{
+  display: grid;
+  gap: 12px;
+}
+
+.listing-panel{
+  align-content: start;
+}
+
+.listing-tags{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.listing-tags .chip{
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+}
+
+.deal-summary{
+  align-content: start;
+  background: linear-gradient(180deg, rgba(20,24,35,0.94), rgba(15,17,26,0.98));
+  border-color: rgba(87,160,255,0.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.deal-kicker{
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(143,199,255,0.9);
+}
+
+.deal-summary-list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.deal-summary-list li{
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.deal-summary-list li:last-child{
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.deal-summary-list span{
+  color: rgba(255,255,255,0.58);
+  font-size: 13px;
+}
+
+.deal-summary-list strong{
+  line-height: 1.35;
+}
+
+.deal-value{
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.deal-amount{
+  font-size: 22px;
+  color: #d7ecff;
+}
+
+.deal-status-text{
+  text-transform: capitalize;
+  color: #9df4c7;
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(157,244,199,0.42);
+  background: rgba(157,244,199,0.12);
+}
+
+.deal-summary-note{
+  margin: 8px 0 0;
+  color: rgba(255,255,255,0.86);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  font-size: 14px;
 }
 
 .order-chat-mobile .product-header{
@@ -1185,6 +1293,27 @@ textarea.input{
 
 @media (min-width: 700px){
   .order-chat-mobile{
-    width: min(460px, calc(100vw - 40px));
+    width: min(1200px, calc(100vw - 40px));
+  }
+
+  .order-chat-layout{
+    grid-template-columns: minmax(240px, 0.9fr) minmax(420px, 1.8fr) minmax(220px, 0.9fr);
+    align-items: start;
+  }
+
+  .order-chat-layout .seller-chat-screen{
+    height: min(680px, 76vh);
+  }
+
+  .order-chat-layout > .product-block,
+  .order-chat-layout > .deal-summary{
+    position: sticky;
+    top: 76px;
+  }
+}
+
+@media (max-width: 960px){
+  .order-chat-layout{
+    grid-template-columns: 1fr;
   }
 }
