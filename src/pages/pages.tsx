@@ -1783,7 +1783,8 @@ export const MessagesPage = () => {
   }
 
   const submitMessage = () => {
-    if (!selectedThread || !draft.trim() || (peerBlocked && !isArbitrator)) return
+    const hasPayload = Boolean(draft.trim() || attachedImage)
+    if (!selectedThread || !hasPayload || (peerBlocked && !isArbitrator)) return
     sendOrderMessage(
       selectedThread.order.id,
       sender,
@@ -1833,6 +1834,8 @@ export const MessagesPage = () => {
     if (reportFileRef.current) reportFileRef.current.value = ''
   }
 
+  const canSendMessage = Boolean((draft.trim() || attachedImage) && (!peerBlocked || isArbitrator))
+
   return (
     <div className="messages-center">
       <section className="messages-shell">
@@ -1843,7 +1846,8 @@ export const MessagesPage = () => {
           </div>
 
           <div className="messages-list-scroll">
-            {threads.length ? threads.map((thread) => {
+            <div className="messages-list-stack">
+              {threads.length ? threads.map((thread) => {
               const isActive = thread.order.id === selectedOrderId
               return (
                 <button
@@ -1872,6 +1876,7 @@ export const MessagesPage = () => {
                 </button>
               )
             }) : <p className="muted">No conversations yet.</p>}
+            </div>
           </div>
         </aside>
 
@@ -1906,6 +1911,7 @@ export const MessagesPage = () => {
 
                 <div className="messages-chat-body">
                   <div className="messages-chat-scroll">
+                    <div className="messages-list-viewport">
                     {selectedMessages.length ? selectedMessages.map((message) => {
                       const isSystem = message.sender === 'system'
                       const isMine = !isSystem && message.sender === sender
@@ -1928,6 +1934,7 @@ export const MessagesPage = () => {
                         </div>
                       )
                     }) : <div className="messages-empty-pill">No messages in this chat yet.</div>}
+                    </div>
                   </div>
 
                   <div className="messages-composer-overlay">
@@ -1935,7 +1942,19 @@ export const MessagesPage = () => {
                       <input ref={composerFileRef} className="file-input" type="file" accept="image/*" onChange={onComposerFile} />
                       <button className="icon-btn" type="button" aria-label="Attach file" onClick={openComposerFile}><AttachmentIcon /></button>
                       <div className="messages-compose-input-wrap">
-                        <input className="input" placeholder={peerBlocked ? 'Unblock user to continue messaging...' : 'Write a message...'} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={peerBlocked && !isArbitrator} />
+                        <textarea
+                          className="input messages-compose-input"
+                          placeholder={peerBlocked ? 'Unblock user to continue messaging...' : 'Write a message...'}
+                          value={draft}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onInput={(event) => {
+                            const el = event.currentTarget
+                            el.style.height = 'auto'
+                            el.style.height = `${Math.min(el.scrollHeight, 108)}px`
+                          }}
+                          rows={1}
+                          disabled={peerBlocked && !isArbitrator}
+                        />
                         {attachedImage && (
                           <div className="messages-attachment-row">
                             <small className="attach-hint">Attachment ready</small>
@@ -1946,7 +1965,7 @@ export const MessagesPage = () => {
                           </div>
                         )}
                       </div>
-                      <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!draft.trim() || (peerBlocked && !isArbitrator)} onClick={submitMessage}><SendArrowIcon /></button>
+                      <button className="icon-btn send-btn" type="button" aria-label="Send" disabled={!canSendMessage} onClick={submitMessage}><SendArrowIcon /></button>
                     </div>
                   </div>
                 </div>
