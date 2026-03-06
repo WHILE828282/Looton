@@ -1047,6 +1047,7 @@ export const OfferDetailsPage = () => {
           })}
         </div>
 
+
         <div className="chat-input-bar">
           <input
             className="input chat-offer-input"
@@ -1184,7 +1185,9 @@ export const ChatPage = () => {
   const [reportDetails, setReportDetails] = useState('')
   const [attachedImage, setAttachedImage] = useState<string | undefined>()
   const [expandedDescription, setExpandedDescription] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const order = orders.find((o) => o.id === orderId)
 
   if (!order) return <p>Order not found</p>
@@ -1204,6 +1207,10 @@ export const ChatPage = () => {
   const offerTitle = offer?.title ?? 'Custom order'
   const offerDescription = offer?.description?.trim() || 'Contact seller before payment for fast processing.'
   const orderStatusLabel = order.status.replace('_', ' ')
+  const peerId = user.id === order.sellerId ? order.buyerId : order.sellerId
+  const peerLabel = sender === 'buyer' ? `seller_${order.sellerId}` : `buyer_${order.buyerId}`
+  const blockStorageKey = `looton_block_peer_${user.id}_${peerId}`
+  const [peerBlocked, setPeerBlocked] = useState(() => localStorage.getItem(blockStorageKey) === '1')
 
   if (!canAccessChat) {
     return (
@@ -1256,6 +1263,26 @@ export const ChatPage = () => {
     joinDisputeChat(activeDispute.id, alias)
   }, [canModerateChat, activeDispute, joinDisputeChat, user.id])
 
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (!menuRef.current || !event.target) return
+      if (!menuRef.current.contains(event.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  useEffect(() => {
+    setPeerBlocked(localStorage.getItem(blockStorageKey) === '1')
+  }, [blockStorageKey])
+
+  const togglePeerBlock = () => {
+    const next = !peerBlocked
+    localStorage.setItem(blockStorageKey, next ? '1' : '0')
+    setPeerBlocked(next)
+    setMenuOpen(false)
+  }
+
   const reportReasonOptions: { value: Dispute['reasonCode']; label: string }[] = [
     { value: 'not_received', label: 'Seller did not deliver the order' },
     { value: 'invalid', label: 'Delivered item/service is invalid' },
@@ -1268,7 +1295,7 @@ export const ChatPage = () => {
       <header className="product-header">
         <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back">←</button>
         <h2>{offerTitle}</h2>
-        <div className="product-header-actions"><button className="icon-btn" aria-label="Menu">☰</button></div>
+        <div className="product-header-actions" />
       </header>
 
       <section className="product-block product-meta-grid">
@@ -1299,7 +1326,22 @@ export const ChatPage = () => {
               <p className="seller-chat-status">Online</p>
             </div>
           </div>
-          <button className="seller-chat-icons" aria-label="Chat menu">☰</button>
+          <div className="chat-menu-wrap" ref={menuRef}>
+            <button className="seller-chat-icons" aria-label="Chat menu" onClick={() => setMenuOpen((v) => !v)}>☰</button>
+            {menuOpen && (
+              <div className="chat-menu card">
+                <button className="chat-menu-item" onClick={() => {
+                  setReportOpen(true)
+                  setMenuOpen(false)
+                }}>
+                  Open dispute
+                </button>
+                <button className="chat-menu-item danger" onClick={togglePeerBlock}>
+                  {peerBlocked ? 'Unblock user' : 'Block user'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="chat-messages">
@@ -1322,6 +1364,10 @@ export const ChatPage = () => {
             )
           }) : <div className="chat-empty-tip">No messages yet</div>}
         </div>
+
+        {peerBlocked && !canModerateChat && (
+          <div className="chat-warning">You blocked {peerLabel}. Unblock this user in ☰ menu to continue messaging.</div>
+        )}
 
         {reportOpen && (
           <div className="chat-report card">
@@ -1367,17 +1413,20 @@ export const ChatPage = () => {
           <div className="chat-input-wrap">
             <textarea
               className="input chat-input"
-              placeholder={canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
+              placeholder={peerBlocked ? `Unblock ${peerLabel} to continue chatting...` : canModerateChat ? 'Ask clarifying questions as an arbitrator...' : 'Write a message...'}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               rows={1}
+              disabled={peerBlocked && !canModerateChat}
             />
             {attachedImage && <small className="attach-hint">Image attached</small>}
           </div>
           <button
             className="icon-btn send-btn"
             aria-label="Send message"
+            disabled={(peerBlocked && !canModerateChat) || !draft.trim()}
             onClick={() => {
+              if (peerBlocked && !canModerateChat) return
               sendOrderMessage(
                 order.id,
                 sender,
