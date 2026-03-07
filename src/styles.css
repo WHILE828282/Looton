@@ -382,15 +382,16 @@ textarea.input{
 .timeline{ margin:0; padding-left: 18px; }
 .timeline li{ margin: 4px 0; }
 
-/* Bottom nav (Portals-style) */
-.bottom-nav.portals{
+/* Bottom nav (shared shell for user + arbitrator roles) */
+.bottom-nav{
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: 14px;
+  z-index: 12;
   width: min(520px, calc(100% - 18px));
   display: grid;
-  grid-template-columns: repeat(4, 1fr) 52px; /* Market Orders Sell Profile + avatar */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   padding: 10px;
   border-radius: var(--radius-nav);
@@ -401,7 +402,11 @@ textarea.input{
   box-shadow: 0 18px 44px rgba(0,0,0,0.65);
 }
 
-.bottom-nav.portals .tab{
+.bottom-nav.portals{
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 52px; /* Market Orders Sell Profile + avatar */
+}
+
+.bottom-nav .tab{
   height: 44px;
   border-radius: 999px;
   border: 1px solid transparent;
@@ -415,22 +420,22 @@ textarea.input{
   transition: background 180ms ease, color 180ms ease, transform 120ms ease, border-color 180ms ease;
 }
 
-.bottom-nav.portals .tab-icon{
+.bottom-nav .tab-icon{
   line-height: 1;
   opacity: 0.9;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.bottom-nav.portals .tab-icon svg{ width: 18px; height: 18px; }
+.bottom-nav .tab-icon svg{ width: 18px; height: 18px; }
 
-.bottom-nav.portals .tab.active{
+.bottom-nav .tab.active{
   background: rgba(255,255,255,0.08);
   border-color: rgba(255,255,255,0.12);
   color: var(--text-primary);
   box-shadow: var(--shadow-inset);
 }
-.bottom-nav.portals .tab:active{ transform: translateY(1px); }
+.bottom-nav .tab:active{ transform: translateY(1px); }
 
 /* Telegram avatar button (right) */
 .tg-avatar-btn{
@@ -674,7 +679,7 @@ textarea.input{
 
 .bottom-nav.portals .tab{ color: #9CA3AF; }
 
-.bottom-nav.portals .tab.active{
+.bottom-nav .tab.active{
   background: linear-gradient(180deg, rgba(30,41,59,0.54), rgba(17,24,39,0.5));
   border-color: rgba(255,255,255,0.16);
   color: #F8FAFC;
@@ -1193,10 +1198,10 @@ textarea.input{
 }
 
 .product-page{
-  max-width: 760px;
+  max-width: 920px;
   margin: 0 auto;
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .product-header{
@@ -1238,6 +1243,50 @@ textarea.input{
 }
 
 .product-block h3{ margin: 0; font-size: 22px; }
+
+.offer-journey{
+  margin-top: 4px;
+  border: 1px solid rgba(148,163,184,.25);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(30,41,59,.4), rgba(15,23,42,.34));
+  padding: 12px;
+}
+
+.offer-journey-title{
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.offer-journey ol{
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: #e2e8f0;
+}
+
+.offer-purchase-panel{ gap: 12px; }
+
+.offer-price-line{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #cbd5e1;
+  border-bottom: 1px dashed rgba(148,163,184,.25);
+  padding-bottom: 8px;
+}
+
+.offer-price-line.total{ border-bottom: 0; padding-bottom: 0; }
+
+.offer-price-line strong{
+  color: #f8fafc;
+  font-size: 18px;
+}
+
+.offer-actions-row .btn{ min-height: 44px; }
 
 .product-meta-grid{
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1944,7 +1993,12 @@ textarea.input{
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(148,163,184,.18);
 }
+
+.messages-list-head strong{ display: block; font-size: 15px; }
+.messages-list-head small{ color: #94a3b8; }
 
 .messages-list-scroll{
   display: grid;
@@ -1968,7 +2022,7 @@ textarea.input{
   background: rgba(17,24,39,0.58);
   display: grid;
   grid-template-columns: 42px 1fr;
-  gap: 10px;
+  gap: 12px;
   padding: 10px;
   text-align: left;
   color: inherit;
@@ -2039,6 +2093,22 @@ textarea.input{
   color: #f8fafc;
 }
 
+.messages-thread-status{
+  font-size: 11px;
+  border: 1px solid rgba(148,163,184,.35);
+  background: rgba(30,41,59,.55);
+  color: #cbd5e1;
+  border-radius: 999px;
+  padding: 2px 8px;
+  text-transform: capitalize;
+}
+
+.messages-thread-status.dispute{
+  border-color: rgba(251,113,133,.4);
+  background: rgba(127,29,29,.4);
+  color: #fecdd3;
+}
+
 .messages-chat{
   flex: 1;
   min-width: 0;
@@ -2096,7 +2166,7 @@ textarea.input{
 .messages-chat-scroll{
   display: grid;
   align-content: start;
-  padding: 12px 12px 124px;
+  padding: 14px 14px 130px;
   overflow-y: auto;
   min-height: 0;
 }
@@ -2104,7 +2174,19 @@ textarea.input{
 .messages-list-viewport{
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  position: relative;
+}
+
+.messages-list-viewport::before{
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(148,163,184,.2), rgba(148,163,184,0));
+  pointer-events: none;
 }
 
 .messages-bubble-wrap{
@@ -2118,7 +2200,8 @@ textarea.input{
 }
 
 .messages-bubble-wrap.system-wrap{
-  justify-items: center;
+  justify-items: stretch;
+  padding-left: 34px;
 }
 
 .messages-sender-name{
@@ -2144,22 +2227,61 @@ textarea.input{
 .messages-bubble.arb,
 .messages-bubble.system{ max-width: 92%; background: rgba(55,65,81,0.46); }
 
-.messages-bubble.system-payment,
-.messages-bubble.system-joined,
-.messages-bubble.system-opened,
-.messages-bubble.system-dispute,
-.messages-bubble.system-confirmed,
-.messages-bubble.system-system{
-  max-width: min(88%, 620px);
+.messages-timeline-card{
+  max-width: min(88%, 660px);
+  margin-left: 0;
+  display: grid;
   grid-template-columns: auto 1fr;
   align-items: start;
-  gap: 8px;
-  background: linear-gradient(180deg, rgba(30,41,59,0.62), rgba(15,23,42,0.7));
-  border-color: rgba(148,163,184,0.3);
+  gap: 10px;
+  border: 1px solid rgba(148,163,184,.32);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(30,41,59,.68), rgba(15,23,42,.8));
+  padding: 10px 12px;
+  position: relative;
 }
 
-.messages-bubble.system-payment .messages-system-icon{ color: #38bdf8; }
-.messages-bubble.system-confirmed .messages-system-icon{ color: #4ade80; }
+.messages-timeline-card::before{
+  content: '';
+  position: absolute;
+  left: -21px;
+  top: 15px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+}
+
+.messages-timeline-card.system-dispute-opened,
+.messages-timeline-card.system-dispute-assigned,
+.messages-timeline-card.system-dispute-update{
+  border-color: rgba(251,113,133,.4);
+  background: linear-gradient(180deg, rgba(127,29,29,.42), rgba(69,10,10,.46));
+}
+
+.messages-timeline-card.system-dispute-opened::before,
+.messages-timeline-card.system-dispute-assigned::before,
+.messages-timeline-card.system-dispute-update::before{
+  background: #fb7185;
+  box-shadow: 0 0 0 3px rgba(251,113,133,.25);
+}
+
+.messages-timeline-card.system-payment-confirmed,
+.messages-timeline-card.system-confirmed{
+  border-color: rgba(74,222,128,.4);
+  background: linear-gradient(180deg, rgba(20,83,45,.5), rgba(5,46,22,.5));
+}
+
+.messages-timeline-card.system-payment-confirmed::before,
+.messages-timeline-card.system-confirmed::before{
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74,222,128,.25);
+}
+
+.messages-timeline-card.system-payment .messages-system-icon{ color: #38bdf8; }
+.messages-timeline-card.system-confirmed .messages-system-icon,
+.messages-timeline-card.system-payment-confirmed .messages-system-icon{ color: #4ade80; }
 
 .messages-bubble p{ margin: 0; color: #e5e7eb; }
 .messages-bubble small{
@@ -2172,8 +2294,8 @@ textarea.input{
 }
 
 .messages-system-icon{
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   color: #93c5fd;
 }
 
@@ -2306,12 +2428,12 @@ textarea.input{
 .messages-report{
   position: relative;
   z-index: 1;
-  width: min(420px, 94%);
-  margin: 8px;
+  width: min(620px, 94%);
+  margin: 0;
   pointer-events: auto;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 16px;
 }
 
 .messages-attachment-row{
@@ -2346,6 +2468,8 @@ textarea.input{
 
 .messages-details h3{ margin: 0; }
 
+.messages-report .input{ min-height: 42px; }
+
 .messages-details-label{
   margin: 0;
   font-size: 12px;
@@ -2371,11 +2495,12 @@ textarea.input{
 }
 
 .messages-modal-centered .messages-report{
-  width: min(560px, 94%);
+  width: min(640px, 94%);
   margin: 0;
   max-height: min(84vh, 760px);
   overflow-y: auto;
-  border-radius: 16px;
+  border-radius: 18px;
+  box-shadow: 0 30px 70px rgba(2,6,23,.6);
 }
 
 .messages-system-content{
@@ -2402,6 +2527,17 @@ textarea.input{
   width: fit-content;
   margin: auto;
 }
+
+.messages-empty-state{
+  margin: auto;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  max-width: 460px;
+}
+
+.messages-empty-state small{ color: #94a3b8; }
 
 @media (max-width: 1180px){
   .messages-list{ width: 320px; }

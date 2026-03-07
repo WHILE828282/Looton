@@ -855,6 +855,7 @@ export const OfferDetailsPage = () => {
 
   const fee = calcFee(currentOffer.priceTon)
   const total = currentOffer.priceTon + fee
+  const trustLevel = currentOffer.sellerStats.depositTon >= DEPOSIT_THRESHOLD ? 'High protection seller' : 'Standard protection seller'
 
   return (
     <div className="product-page">
@@ -874,19 +875,39 @@ export const OfferDetailsPage = () => {
         <div><span>Delivery type</span><strong>{currentOffer.deliveryType}</strong></div>
         <div><span>Payout policy</span><strong>{payoutBadge(currentOffer)}</strong></div>
         <div><span>Seller deposit</span><strong>{currentOffer.sellerStats.depositTon.toFixed(2)} TON</strong></div>
+        <div><span>Seller rating</span><strong>{currentOffer.sellerStats.rating.toFixed(1)} / 5</strong></div>
       </section>
 
       <section className="product-block">
-        <h3>Offer details</h3>
+        <h3>Offer overview</h3>
         <p>{currentOffer.description}</p>
+        <div className="offer-journey">
+          <p className="offer-journey-title">Transaction flow</p>
+          <ol>
+            <li>Escrow payment locks funds before delivery.</li>
+            <li>Seller delivers in chat with timestamped proof.</li>
+            <li>You confirm completion or open dispute with evidence.</li>
+          </ol>
+        </div>
       </section>
 
-      <section className="product-block">
-        <h3>Purchase</h3>
-        <p className="muted">Price: {currentOffer.priceTon.toFixed(2)} TON · Fee: {fee.toFixed(2)} TON · Total: {total.toFixed(2)} TON</p>
-        <div className="actions-row">
-          <Link className="btn" to={`/checkout/${currentOffer.id}`}>Buy now</Link>
-          <Link className="btn secondary" to="/chats">Contact seller in chats</Link>
+      <section className="product-block offer-purchase-panel">
+        <div>
+          <h3>Checkout & communication</h3>
+          <p className="muted">{trustLevel} · {payoutBadge(currentOffer)} payout</p>
+        </div>
+        <div className="offer-price-line">
+          <span>Price</span><strong>{currentOffer.priceTon.toFixed(2)} TON</strong>
+        </div>
+        <div className="offer-price-line">
+          <span>Escrow fee</span><strong>{fee.toFixed(2)} TON</strong>
+        </div>
+        <div className="offer-price-line total">
+          <span>Total to pay</span><strong>{total.toFixed(2)} TON</strong>
+        </div>
+        <div className="actions-row offer-actions-row">
+          <Link className="btn" to={`/checkout/${currentOffer.id}`}>Continue to secure checkout</Link>
+          <Link className="btn secondary" to="/chats">Open transaction workspace</Link>
         </div>
       </section>
     </div>
@@ -1075,7 +1096,9 @@ export const MessagesPage = () => {
         peer: isArbitrator ? `Dispute #${orderDispute?.id.slice(-6) ?? order.id.slice(-6)}` : `Seller ${peerId}`,
         preview,
         time: latestMessage ? new Date(latestMessage.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
-        unreadCount
+        unreadCount,
+        orderStatus: order.status,
+        hasDispute: Boolean(orderDispute)
       }
     })
     .sort((a, b) => b.order.createdAt - a.order.createdAt)
@@ -1140,6 +1163,7 @@ export const MessagesPage = () => {
 
   const getSystemType = (text: string) => {
     const normalized = text.toLowerCase()
+    if (normalized.includes('payment confirmed')) return 'payment-confirmed'
     if (normalized.includes('payment') || normalized.includes('secured')) return 'payment'
     if (normalized.includes('joined') || normalized.includes('arbitrator joined')) return 'joined'
     if (normalized.includes('assigned') && normalized.includes('dispute')) return 'dispute-assigned'
