@@ -2160,6 +2160,22 @@ textarea.input{
   color: #fecdd3;
 }
 
+.messages-thread-status{
+  font-size: 11px;
+  border: 1px solid rgba(148,163,184,.35);
+  background: rgba(30,41,59,.55);
+  color: #cbd5e1;
+  border-radius: 999px;
+  padding: 2px 8px;
+  text-transform: capitalize;
+}
+
+.messages-thread-status.dispute{
+  border-color: rgba(251,113,133,.4);
+  background: rgba(127,29,29,.4);
+  color: #fecdd3;
+}
+
 .messages-chat{
   flex: 1;
   min-width: 0;
