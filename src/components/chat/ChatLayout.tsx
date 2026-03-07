@@ -7,13 +7,15 @@ export type ReportReason = 'not_completed' | 'no_response' | 'wrong_item' | 'fra
 export type ChatThread = {
   order: { id: string; buyerId: number; sellerId: number }
   offer?: { description: string }
-  dispute?: { arbitratorAlias?: string }
+  dispute?: { arbitratorAlias?: string; status?: string }
   peerId: number
   title: string
   peer: string
   preview: string
   time: string
   unreadCount: number
+  orderStatus: string
+  hasDispute: boolean
 }
 
 type HeaderProps = {
@@ -82,12 +84,14 @@ const systemTypeLabel = (systemType: string) => {
   if (systemType === 'dispute-assigned') return 'Dispute assigned'
   if (systemType === 'dispute-opened') return 'Dispute opened'
   if (systemType === 'dispute-update') return 'Dispute update'
-  if (systemType === 'confirmed') return 'Order confirmed'
+  if (systemType === 'payment-confirmed') return 'Payment confirmed'
+  if (systemType === 'confirmed') return 'Order completed'
   return 'System update'
 }
 
 const SystemMessageIcon = ({ systemType }: { systemType: string }) => {
   if (systemType === 'payment') return <TonIcon className="messages-system-type-icon" />
+  if (systemType === 'payment-confirmed') return <CheckDoubleIcon />
   if (systemType === 'joined') return <WalletIcon />
   if (systemType === 'dispute-assigned') return <ShieldIcon />
   if (systemType === 'dispute-opened' || systemType === 'dispute-update') return <ReportIcon />
@@ -97,10 +101,10 @@ const SystemMessageIcon = ({ systemType }: { systemType: string }) => {
 
 export const SystemMessage = ({ message, systemType }: { message: ChatMessage; systemType: string }) => (
   <div className="messages-bubble-wrap system-wrap">
-    <div className={`messages-bubble system-${systemType}`}>
+    <div className={`messages-timeline-card system-${systemType}`}>
       <span className="messages-system-icon"><SystemMessageIcon systemType={systemType} /></span>
       <div className="messages-system-content">
-        <p className="messages-system-label">Looton System · {systemTypeLabel(systemType)}</p>
+        <p className="messages-system-label">Transaction timeline · {systemTypeLabel(systemType)}</p>
         <p>{message.text}</p>
         <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
       </div>
@@ -238,8 +242,11 @@ type ConversationsColumnProps = {
 const ConversationsColumn = ({ threads, selectedOrderId, onSelectThread }: ConversationsColumnProps) => (
   <aside className="messages-list card" aria-label="Conversation list">
     <div className="messages-list-head">
-      <strong>Messages</strong>
-      <small>{threads.length} chats</small>
+      <div>
+        <strong>Chats workspace</strong>
+        <small>Escrow conversations & disputes</small>
+      </div>
+      <small>{threads.length} active</small>
     </div>
 
     <div className="messages-list-scroll">
@@ -254,15 +261,18 @@ const ConversationsColumn = ({ threads, selectedOrderId, onSelectThread }: Conve
               onClick={() => onSelectThread(thread.order.id)}
             >
               <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
-              <div className="messages-thread-meta">
-                <div className="messages-thread-row">
-                  <strong>{thread.peer}</strong>
-                  <small>{thread.time}</small>
+              <div className="messages-thread-main">
+                <div className="messages-thread-head">
+                  <strong className="messages-thread-peer">{thread.peer}</strong>
+                  <div className="messages-thread-side">
+                    <small className="messages-thread-time">{thread.time}</small>
+                    {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
+                  </div>
                 </div>
-                <p>{thread.preview}</p>
-                <div className="messages-thread-row">
-                  <small>{thread.title}</small>
-                  {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
+                <p className="messages-thread-preview">{thread.preview}</p>
+                <div className="messages-thread-foot">
+                  <small className="messages-thread-title">{thread.title}</small>
+                  <span className={`messages-thread-status ${thread.hasDispute ? 'dispute' : ''}`}>{thread.hasDispute ? 'Dispute' : thread.orderStatus.split('_').join(' ')}</span>
                 </div>
               </div>
             </button>
@@ -350,7 +360,10 @@ export const ChatPageLayout = ({ threads, selectedOrderId, onSelectThread, selec
 
     {!selectedThread ? (
       <section className="messages-chat card" aria-label="Chat panel">
-        <div className="messages-empty-pill">Select a chat to start messaging</div>
+        <div className="messages-empty-state">
+          <p className="messages-empty-pill">Select a conversation to open your transaction workspace.</p>
+          <small>You'll see order messages, dispute milestones and payout confirmations here.</small>
+        </div>
       </section>
     ) : (
       <ActiveChatPanel
