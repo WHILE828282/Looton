@@ -2009,7 +2009,7 @@ textarea.input{
 
 .messages-list-stack{
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .messages-list-scroll::-webkit-scrollbar{ width: 6px; }
