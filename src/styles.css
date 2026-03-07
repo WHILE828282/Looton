@@ -2206,8 +2206,20 @@ textarea.input{
   backdrop-filter: blur(4px);
 }
 
-.messages-chat-head div{ display: grid; }
+.messages-chat-head > div:first-child{ display: grid; }
 .messages-chat-head small{ color: #22c55e; }
+
+.messages-debug-marker{
+  color: #ef4444 !important;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.messages-debug-marker.composer{
+  margin: 0 0 6px;
+}
 
 .messages-head-actions{
   display: flex;
@@ -2218,11 +2230,19 @@ textarea.input{
   position: relative;
 }
 
+.messages-head-actions .icon-btn,
+.messages-head-actions .details-toggle-btn{
+  height: 36px;
+}
+
 .messages-chat-scroll{
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-content: flex-start;
+  flex: 1;
   padding: 16px 16px 14px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   min-height: 0;
   background: linear-gradient(180deg, rgba(15,23,42,.12), rgba(2,6,23,0));
 }
@@ -2380,15 +2400,17 @@ textarea.input{
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .messages-composer-overlay{
-  position: sticky;
-  bottom: 0;
+  position: relative;
   padding: 8px 10px 10px;
   margin-top: auto;
-  background: linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.8) 48%, rgba(2,6,23,.92));
-  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+  background: rgba(2,6,23,.45);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(148,163,184,.12);
   z-index: 2;
 }
 
@@ -2424,11 +2446,16 @@ textarea.input{
   line-height: 1.35;
 }
 
-.messages-composer .icon-btn svg,
+.messages-composer .icon-btn:not(.send-btn) svg,
 .messages-report-attach svg,
 .messages-menu-item svg{
   width: 16px;
   height: 16px;
+}
+
+.messages-composer .send-btn svg{
+  width: 19px;
+  height: 19px;
 }
 
 .details-toggle-btn{

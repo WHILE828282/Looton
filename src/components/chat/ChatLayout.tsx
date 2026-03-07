@@ -58,6 +58,7 @@ export const ChatHeader = ({ peer, isBlocked, menuOpen, detailsOpen, menuRef, on
     <div>
       <strong>{peer}</strong>
       <small>{isBlocked ? 'Blocked' : 'Online'}</small>
+      <small className="messages-debug-marker">CHAT UI BUILD MARKER - COMPOSER FIX</small>
     </div>
     <div className="messages-head-actions" ref={menuRef}>
       <button className="icon-btn" type="button" aria-label="Chat actions" onClick={onToggleMenu}><EllipsisVerticalIcon /></button>
@@ -178,6 +179,7 @@ type ComposerOverlayProps = {
 
 export const ComposerOverlay = ({ composerFileRef, draft, attachedImage, isBlocked, isArbitrator, canSend, onDraftChange, onDraftInput, onComposerFile, onOpenComposerFile, onRemoveAttachment, onSend }: ComposerOverlayProps) => (
   <div className="messages-composer-overlay">
+    <p className="messages-debug-marker composer">COMPOSER OUTSIDE SCROLL</p>
     <div className="messages-composer">
       <input ref={composerFileRef} className="file-input" type="file" accept="image/*" onChange={onComposerFile} />
       <button className="icon-btn" type="button" aria-label="Attach file" onClick={onOpenComposerFile}><AttachmentIcon /></button>
