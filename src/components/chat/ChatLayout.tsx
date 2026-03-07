@@ -1,5 +1,5 @@
 import { type ChangeEvent, type RefObject } from 'react'
-import { AttachmentIcon, BlockIcon, CheckDoubleIcon, CheckIcon, EllipsisVerticalIcon, ReportIcon, SendArrowIcon, ShieldIcon, UnblockIcon } from '../../icons1/UiIcons'
+import { AttachmentIcon, BlockIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, ReportIcon, SendArrowIcon, ShieldIcon, TonIcon, UnblockIcon, WalletIcon } from '../../icons1/UiIcons'
 import type { ChatMessage } from '../../types'
 
 export type ReportReason = 'not_completed' | 'no_response' | 'wrong_item' | 'fraud' | 'order_issue' | 'abuse' | 'other'
@@ -76,10 +76,19 @@ export const ChatHeader = ({ peer, isBlocked, menuOpen, detailsOpen, menuRef, on
   </header>
 )
 
+const SystemMessageIcon = ({ systemType }: { systemType: string }) => {
+  if (systemType === 'payment') return <TonIcon className="messages-system-type-icon" />
+  if (systemType === 'joined') return <WalletIcon />
+  if (systemType === 'dispute-assigned') return <ShieldIcon />
+  if (systemType === 'dispute-update') return <ReportIcon />
+  if (systemType === 'confirmed') return <CheckDoubleIcon />
+  return <ClockIcon />
+}
+
 export const SystemMessage = ({ message, systemType }: { message: ChatMessage; systemType: string }) => (
   <div className="messages-bubble-wrap system-wrap">
     <div className={`messages-bubble system-${systemType}`}>
-      <span className="messages-system-icon"><ShieldIcon /></span>
+      <span className="messages-system-icon"><SystemMessageIcon systemType={systemType} /></span>
       <p>{message.text}</p>
       <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
     </div>

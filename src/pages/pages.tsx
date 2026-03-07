@@ -5,10 +5,9 @@ import { Card } from '../components/Card'
 import { categories, DEPOSIT_THRESHOLD, games } from '../lib/mockData'
 import { canOpenDispute, calcFee, isCompletedStatus, payoutBadge } from '../lib/domain'
 import { useApp } from '../lib/AppContext'
-import { productApi } from '../lib/productApi'
-import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SendIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
+import { ArrowLeftIcon, CheckDoubleIcon, CheckIcon, ClockIcon, EllipsisVerticalIcon, GlobeIcon, MoonIcon, SearchIcon, SettingsIcon, StarIcon, TonIcon, WalletIcon } from '../icons1/UiIcons'
 import { ChatPageLayout, DetailsDrawer, ReportModal, type ReportReason } from '../components/chat/ChatLayout'
-import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Product, ProductChatMessage, Review, Role } from '../types'
+import type { ChatMessage, Dispute, Offer, OfferCategory, OfferDeliveryType, OfferPayoutPolicy, OrderStatus, Role } from '../types'
 
 
 type SellForm = {
@@ -844,192 +843,24 @@ export const OffersPage = () => {
   )
 }
 
-const StarRating = ({ rating = null }: { rating?: ProductChatMessage['rating'] | null }) => {
-  const safeRating = Math.max(0, Math.min(5, Math.round(rating ?? 0)))
-  return (
-    <div className="chat-stars" aria-label={`Rating ${safeRating} out of 5`}>
-      {Array.from({ length: 5 }).map((_, index) => (
-        <StarIcon key={index} className={index < safeRating ? 'active' : ''} />
-      ))}
-    </div>
-  )
-}
-
-const formatChatDayLabel = (dateIso: string) => {
-  const date = new Date(dateIso)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-const ChatBubble = ({ message, compact }: { message: ProductChatMessage; compact: boolean }) => (
-  <article className={`chat-message-row ${message.author === 'seller' ? 'seller' : 'buyer'} ${compact ? 'compact' : ''}`}>
-    <div className={`chat-message-bubble ${message.author === 'seller' ? 'seller' : 'buyer'}`}>
-      {message.orderMeta && (
-        <p className="chat-order-meta review-order-meta">
-          <span>{message.orderMeta.productLabel}</span>
-          <span className="ton-amount"><span>{Math.max(1, Math.round(message.orderMeta.priceRub / 50))}</span> <TonIcon className="ton-inline-icon" /> TON</span>
-        </p>
-      )}
-      {message.rating && <StarRating rating={message.rating} />}
-      <p className="chat-message-text">{message.text}</p>
-    </div>
-  </article>
-)
-
-const SellerDescription = ({ text }: { text: string }) => {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <section className="product-block">
-      <h3>Seller description</h3>
-      <p className={expanded ? 'seller-description expanded' : 'seller-description'}>{text}</p>
-      <button className="text-btn" onClick={() => setExpanded((v) => !v)}>
-        {expanded ? 'Hide' : 'Show more'}
-      </button>
-    </section>
-  )
-}
-
 export const OfferDetailsPage = () => {
   const { offers } = useApp()
   const navigate = useNavigate()
   const { offerId = '' } = useParams()
   const currentOffer = offers.find((item) => item.id === offerId)
-  const [product, setProduct] = useState<Product | null>(null)
-  const [messages, setMessages] = useState<ProductChatMessage[]>([])
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [isProductLoading, setIsProductLoading] = useState(true)
-  const [isChatLoading, setIsChatLoading] = useState(false)
-  const [chatInput, setChatInput] = useState('')
-  const sellerName = currentOffer ? `verified_seller_${currentOffer.sellerId}` : 'verified_seller'
-  const topSentinelRef = useRef<HTMLDivElement | null>(null)
-  const messagesRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    let mounted = true
-    setIsProductLoading(true)
-    productApi.getProduct({ id: offerId, fallbackTitle: currentOffer?.title, category: currentOffer?.category }).then((data) => {
-      if (!mounted) return
-      setProduct(data)
-      setIsProductLoading(false)
-    })
-    return () => {
-      mounted = false
-    }
-  }, [offerId, currentOffer?.title, currentOffer?.category])
-
-  const loadOlderMessages = async () => {
-    if (isChatLoading || nextCursor === null) return
-    setIsChatLoading(true)
-    const previousHeight = messagesRef.current?.scrollHeight ?? 0
-
-    const page = await productApi.getChatMessages({
-      id: offerId,
-      cursor: nextCursor,
-      limit: 12
-    })
-
-    setMessages((prev) => [...page.items, ...prev])
-    setNextCursor(page.nextCursor)
-    setIsChatLoading(false)
-
-    requestAnimationFrame(() => {
-      if (!messagesRef.current) return
-      const newHeight = messagesRef.current.scrollHeight
-      messagesRef.current.scrollTop += newHeight - previousHeight
-    })
+  if (!currentOffer) {
+    return <div className="stack"><p>Offer not found</p></div>
   }
 
-  useEffect(() => {
-    let active = true
-    const bootstrap = async () => {
-      setIsChatLoading(true)
-      const page = await productApi.getChatMessages({
-        id: offerId,
-        cursor: null,
-        limit: 12
-      })
-      if (!active) return
-      setMessages(page.items)
-      setNextCursor(page.nextCursor)
-      setIsChatLoading(false)
-      requestAnimationFrame(() => {
-        if (messagesRef.current) {
-          messagesRef.current.scrollTop = messagesRef.current.scrollHeight
-        }
-      })
-    }
-
-    void bootstrap()
-    return () => {
-      active = false
-    }
-  }, [offerId, currentOffer?.title])
-
-  useEffect(() => {
-    let active = true
-    const loadReviews = async () => {
-      const data = await productApi.getReviews({ offerId })
-      if (!active) return
-      setReviews(data)
-    }
-    void loadReviews()
-    return () => {
-      active = false
-    }
-  }, [offerId])
-
-  useEffect(() => {
-    if (!topSentinelRef.current || !messagesRef.current) return
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) void loadOlderMessages()
-    }, { root: messagesRef.current, rootMargin: '40px' })
-
-    observer.observe(topSentinelRef.current)
-    return () => observer.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messagesRef, topSentinelRef, nextCursor, isChatLoading, offerId])
-
-
-  const conversationMessages = messages
-
-  const showConversationDaySeparator = (index: number) => {
-    if (index === 0) return true
-    return formatChatDayLabel(conversationMessages[index - 1].createdAt) !== formatChatDayLabel(conversationMessages[index].createdAt)
-  }
-
-  const shouldShowSellerTrustCard = conversationMessages.length === 0
-  const sellerPreviewStars = Math.max(1, Math.min(5, Math.round(currentOffer?.sellerStats.rating ?? 5)))
-  const sellerReviewCount = reviews.length
-  const sellerCompletionRate = Math.max(90, Math.min(100, Math.round(((currentOffer?.sellerStats.rating ?? 5) / 5) * 1000) / 10))
-
-  const onSend = () => {
-    const text = chatInput.trim()
-    if (!text) return
-    const message: ProductChatMessage = {
-      id: `local-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      author: 'buyer',
-      text
-    }
-    setMessages((prev) => [...prev, message])
-    setChatInput('')
-    requestAnimationFrame(() => {
-      if (messagesRef.current) {
-        messagesRef.current.scrollTop = messagesRef.current.scrollHeight
-      }
-    })
-  }
-
-  if (isProductLoading || !product) {
-    return <div className="stack"><p>Loading product...</p></div>
-  }
+  const fee = calcFee(currentOffer.priceTon)
+  const total = currentOffer.priceTon + fee
 
   return (
     <div className="product-page">
       <header className="product-header">
         <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back"><ArrowLeftIcon /></button>
-        <h2>{currentOffer?.title ?? product.title}</h2>
+        <h2>{currentOffer.title}</h2>
         <div className="product-header-actions">
           <button className="icon-btn" aria-label="Search"><SearchIcon /></button>
           <button className="icon-btn" aria-label="Theme"><MoonIcon /></button>
@@ -1038,91 +869,24 @@ export const OfferDetailsPage = () => {
       </header>
 
       <section className="product-block product-meta-grid">
-        <div><span>Delivery method</span><strong>{product.deliveryMethod}</strong></div>
-        <div><span>Stock</span><strong>{product.stockText}</strong></div>
-        <div><span>Delivery time</span><strong>{product.deliveryTimeText}</strong></div>
-        {product.category && <div><span>Category</span><strong>{product.category}</strong></div>}
+        <div><span>Category</span><strong>{currentOffer.category}</strong></div>
+        <div><span>Delivery type</span><strong>{currentOffer.deliveryType}</strong></div>
+        <div><span>Payout policy</span><strong>{payoutBadge(currentOffer)}</strong></div>
+        <div><span>Seller deposit</span><strong>{currentOffer.sellerStats.depositTon.toFixed(2)} TON</strong></div>
       </section>
 
-      <SellerDescription text={product.sellerDescription} />
-
-      <section className="seller-chat-screen">
-        <div className="seller-chat-top">
-          <div className="seller-chat-identity">
-            <span className="seller-avatar">S</span>
-            <div>
-              <p className="seller-chat-name">{sellerName}</p>
-              <p className="seller-chat-status">Online</p>
-            </div>
-          </div>
-          <button className="seller-chat-icons" aria-label="Chat menu"><EllipsisVerticalIcon /></button>
-        </div>
-
-        <div className="chat-messages" ref={messagesRef}>
-          <div ref={topSentinelRef} className="chat-top-sentinel" />
-          {nextCursor !== null && (
-            <button className="load-older-btn" onClick={() => void loadOlderMessages()} disabled={isChatLoading}>
-              {isChatLoading ? 'Loading…' : 'Load older messages'}
-            </button>
-          )}
-
-          {shouldShowSellerTrustCard && (
-            <div className="chat-empty-tip seller-trust-card" role="note" aria-live="polite">
-              <div className="seller-trust-stars" aria-label={`Seller rating ${sellerPreviewStars} out of 5`}>
-                {Array.from({ length: 5 }).map((_, index) => <StarIcon key={`trust-star-${index}`} className={index < sellerPreviewStars ? 'active' : ''} />)}
-              </div>
-              <p className="seller-trust-reviews">
-                {sellerReviewCount ? `${sellerReviewCount} reviews from buyers` : 'Trusted seller profile'}
-              </p>
-              <p className="seller-trust-metric">{sellerCompletionRate.toFixed(1)}% completed orders</p>
-              <p className="seller-trust-tip">Message seller before payment</p>
-            </div>
-          )}
-
-          {conversationMessages.map((message, index) => {
-            const compact = index > 0 && conversationMessages[index - 1].author === message.author
-            return (
-              <div key={message.id}>
-                {showConversationDaySeparator(index) && (
-                  <div className="chat-day-separator">
-                    <span>{formatChatDayLabel(message.createdAt)}</span>
-                  </div>
-                )}
-                <ChatBubble message={message} compact={compact} />
-              </div>
-            )
-          })}
-        </div>
-
-
-        <div className="chat-input-bar">
-          <input
-            className="input chat-offer-input"
-            value={chatInput}
-            onChange={(event) => setChatInput(event.target.value)}
-            placeholder="Write a message..."
-          />
-          <button className="btn chat-send-btn" type="button" onClick={onSend} disabled={!chatInput.trim()}>
-            <SendIcon />
-          </button>
-        </div>
+      <section className="product-block">
+        <h3>Offer details</h3>
+        <p>{currentOffer.description}</p>
       </section>
 
-      <section className="product-block product-reviews">
-        <h3>Reviews</h3>
-        {reviews.length ? reviews.map((review) => {
-          const amountTon = Math.max(1, Math.round(review.priceRub / 50))
-          return (
-            <article className="review-item" key={review.id}>
-              <StarRating rating={review.rating} />
-              <p className="chat-order-meta review-order-meta">
-                <span>{review.productLabel}</span>
-                <span className="ton-amount"><span>{amountTon}</span> <TonIcon className="ton-inline-icon" /> TON</span>
-              </p>
-              <p className="chat-message-text">{review.text}</p>
-            </article>
-          )
-        }) : <p className="muted">No reviews yet.</p>}
+      <section className="product-block">
+        <h3>Purchase</h3>
+        <p className="muted">Price: {currentOffer.priceTon.toFixed(2)} TON · Fee: {fee.toFixed(2)} TON · Total: {total.toFixed(2)} TON</p>
+        <div className="actions-row">
+          <Link className="btn" to={`/checkout/${currentOffer.id}`}>Buy now</Link>
+          <Link className="btn secondary" to="/chats">Open chats workspace</Link>
+        </div>
       </section>
     </div>
   )
@@ -1372,10 +1136,10 @@ export const MessagesPage = () => {
   const getSystemType = (text: string) => {
     const normalized = text.toLowerCase()
     if (normalized.includes('payment') || normalized.includes('secured')) return 'payment'
-    if (normalized.includes('joined')) return 'joined'
-    if (normalized.includes('opened')) return 'opened'
-    if (normalized.includes('updated') || normalized.includes('assigned') || normalized.includes('dispute')) return 'dispute'
-    if (normalized.includes('confirmed')) return 'confirmed'
+    if (normalized.includes('joined') || normalized.includes('arbitrator joined')) return 'joined'
+    if (normalized.includes('assigned') && normalized.includes('dispute')) return 'dispute-assigned'
+    if (normalized.includes('updated') || normalized.includes('status changed') || normalized.includes('dispute')) return 'dispute-update'
+    if (normalized.includes('confirmed') || normalized.includes('completed')) return 'confirmed'
     return 'system'
   }
 
