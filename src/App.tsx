@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import {
-  ChatPage,
   CheckoutPage,
   DepositPage,
   DisputeDetailsPage,
@@ -34,10 +33,10 @@ export default function App() {
         <Route path="/offer/:offerId" element={<OfferDetailsPage />} />
         <Route path="/checkout/:offerId" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/messages" element={<Navigate to="/chats" replace />} />
         <Route path="/chats" element={<MessagesPage />} />
         <Route path="/order/:orderId" element={<OrderDetailsPage />} />
-        <Route path="/order/:orderId/chat" element={<ChatPage />} />
+        <Route path="/order/:orderId/chat" element={<Navigate to="/chats" replace />} />
         <Route path="/sell" element={<SellPage />} />
         <Route path="/sell/new" element={<SellNewPage />} />
         <Route path="/disputes" element={<DisputesPage />} />

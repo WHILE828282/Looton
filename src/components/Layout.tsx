@@ -47,8 +47,7 @@ export const Layout = () => {
   const location = useLocation()
   const { user } = useApp()
   const isOfferScreen = location.pathname.startsWith('/offer/')
-  const isOrderChatScreen = /^\/order\/[^/]+\/chat\/?$/.test(location.pathname) || (location.pathname.startsWith('/order/') && location.pathname.includes('/chat'))
-  const isFullscreenScreen = isOfferScreen || isOrderChatScreen
+  const isFullscreenScreen = isOfferScreen
   const isMessagesScreen = location.pathname === '/chats' || location.pathname.startsWith('/chats/')
 
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
