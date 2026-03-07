@@ -269,7 +269,7 @@ const ConversationsColumn = ({ threads, selectedOrderId, onSelectThread }: Conve
                 <p>{thread.preview}</p>
                 <div className="messages-thread-row">
                   <small>{thread.title}</small>
-                  <span className={`messages-thread-status ${thread.hasDispute ? 'dispute' : ''}`}>{thread.hasDispute ? 'Dispute' : thread.orderStatus.replaceAll('_', ' ')}</span>
+                  <span className={`messages-thread-status ${thread.hasDispute ? 'dispute' : ''}`}>{thread.hasDispute ? 'Dispute' : thread.orderStatus.split('_').join(' ')}</span>
                   {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
                 </div>
               </div>
