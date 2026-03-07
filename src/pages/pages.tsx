@@ -870,6 +870,7 @@ export const OfferDetailsPage = () => {
 
       <section className="product-block product-meta-grid">
         <div><span>Category</span><strong>{currentOffer.category}</strong></div>
+        <div><span>Seller</span><strong>seller_{currentOffer.sellerId}</strong></div>
         <div><span>Delivery type</span><strong>{currentOffer.deliveryType}</strong></div>
         <div><span>Payout policy</span><strong>{payoutBadge(currentOffer)}</strong></div>
         <div><span>Seller deposit</span><strong>{currentOffer.sellerStats.depositTon.toFixed(2)} TON</strong></div>
@@ -885,7 +886,7 @@ export const OfferDetailsPage = () => {
         <p className="muted">Price: {currentOffer.priceTon.toFixed(2)} TON · Fee: {fee.toFixed(2)} TON · Total: {total.toFixed(2)} TON</p>
         <div className="actions-row">
           <Link className="btn" to={`/checkout/${currentOffer.id}`}>Buy now</Link>
-          <Link className="btn secondary" to="/chats">Open chats workspace</Link>
+          <Link className="btn secondary" to="/chats">Contact seller in chats</Link>
         </div>
       </section>
     </div>
@@ -914,7 +915,10 @@ export const CheckoutPage = () => {
       </Card>
       <TonConnectButton />
       <button className="btn secondary" onClick={() => setConnected(true)}>Simulate wallet connected</button>
-      {connected && <button className="btn" onClick={() => nav(`/order/${createOrder(offer).id}`)}>Pay via escrow</button>}
+      {connected && <button className="btn" onClick={() => {
+        const order = createOrder(offer)
+        nav(`/chats?thread=order_${order.id}`)
+      }}>Pay via escrow</button>}
     </div>
   )
 }
@@ -987,7 +991,7 @@ export const OrderDetailsPage = () => {
         </ol>
       </Card>
 
-      <Link className="btn secondary" to={`/chats?orderId=${order.id}`}>Open order chat</Link>
+      <Link className="btn secondary" to={`/chats?thread=order_${order.id}`}>Open order chat</Link>
 
       {isSeller && <button className="btn" onClick={() => updateOrder(order.id, { status: 'delivered' })}>Mark delivered</button>}
       {isBuyer && <button className="btn" onClick={() => {
@@ -1006,7 +1010,8 @@ export const MessagesPage = () => {
   const { user, orders, offers, disputes, chatMessages, sendOrderMessage, openDispute } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const isArbitrator = ['trainee_arb', 'arb', 'senior_arb', 'admin'].includes(user.role)
-  const initialSelectedOrderId = searchParams.get('orderId')
+  const parseThreadOrderId = (value: string | null) => value?.startsWith('order_') ? value.slice(6) : value
+  const initialSelectedOrderId = parseThreadOrderId(searchParams.get('thread')) ?? searchParams.get('orderId')
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialSelectedOrderId)
   const [draft, setDraft] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -1098,7 +1103,7 @@ export const MessagesPage = () => {
   }, [threads, selectedOrderId])
 
   useEffect(() => {
-    const fromQuery = searchParams.get('orderId')
+    const fromQuery = parseThreadOrderId(searchParams.get('thread')) ?? searchParams.get('orderId')
     if (!fromQuery) return
     if (fromQuery !== selectedOrderId && threads.some((thread) => thread.order.id === fromQuery)) {
       setSelectedOrderId(fromQuery)
@@ -1138,8 +1143,9 @@ export const MessagesPage = () => {
     if (normalized.includes('payment') || normalized.includes('secured')) return 'payment'
     if (normalized.includes('joined') || normalized.includes('arbitrator joined')) return 'joined'
     if (normalized.includes('assigned') && normalized.includes('dispute')) return 'dispute-assigned'
-    if (normalized.includes('updated') || normalized.includes('status changed') || normalized.includes('dispute')) return 'dispute-update'
-    if (normalized.includes('confirmed') || normalized.includes('completed')) return 'confirmed'
+    if (normalized.includes('updated') || normalized.includes('status changed') || normalized.includes('escalated')) return 'dispute-update'
+    if (normalized.includes('opened') || normalized.includes('dispute')) return 'dispute-opened'
+    if (normalized.includes('confirmed') || normalized.includes('completed') || normalized.includes('resolved')) return 'confirmed'
     return 'system'
   }
 
@@ -1222,7 +1228,7 @@ export const MessagesPage = () => {
         selectedOrderId={selectedOrderId}
         onSelectThread={(orderId) => {
           setSelectedOrderId(orderId)
-          setSearchParams({ orderId })
+          setSearchParams({ orderId, thread: `order_${orderId}` })
           setDetailsOpen(false)
           setMenuOpen(false)
           setReportOpen(false)
@@ -1748,7 +1754,7 @@ export const StaffCasePage = () => {
       <div className="chips">
         <button className={`chip ${winner === 'buyer' ? 'active' : ''}`} onClick={() => setWinner('buyer')}>Buyer wins</button>
         <button className={`chip ${winner === 'seller' ? 'active' : ''}`} onClick={() => setWinner('seller')}>Seller wins</button>
-        <Link className="chip" to={`/chats?orderId=${d.orderId}`}>Join dispute chat</Link>
+        <Link className="chip" to={`/chats?thread=order_${d.orderId}`}>Join dispute chat</Link>
       </div>
       <textarea className="input" placeholder="Detailed decision: what facts/evidence point to this winner" value={text} onChange={(e) => setText(e.target.value)} disabled={decisionLocked} />
       {!['senior_arb', 'admin'].includes(user.role) && !decisionLocked && (

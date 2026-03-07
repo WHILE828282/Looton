@@ -76,11 +76,21 @@ export const ChatHeader = ({ peer, isBlocked, menuOpen, detailsOpen, menuRef, on
   </header>
 )
 
+const systemTypeLabel = (systemType: string) => {
+  if (systemType === 'payment') return 'Payment secured'
+  if (systemType === 'joined') return 'Arbitrator joined'
+  if (systemType === 'dispute-assigned') return 'Dispute assigned'
+  if (systemType === 'dispute-opened') return 'Dispute opened'
+  if (systemType === 'dispute-update') return 'Dispute update'
+  if (systemType === 'confirmed') return 'Order confirmed'
+  return 'System update'
+}
+
 const SystemMessageIcon = ({ systemType }: { systemType: string }) => {
   if (systemType === 'payment') return <TonIcon className="messages-system-type-icon" />
   if (systemType === 'joined') return <WalletIcon />
   if (systemType === 'dispute-assigned') return <ShieldIcon />
-  if (systemType === 'dispute-update') return <ReportIcon />
+  if (systemType === 'dispute-opened' || systemType === 'dispute-update') return <ReportIcon />
   if (systemType === 'confirmed') return <CheckDoubleIcon />
   return <ClockIcon />
 }
@@ -89,8 +99,11 @@ export const SystemMessage = ({ message, systemType }: { message: ChatMessage; s
   <div className="messages-bubble-wrap system-wrap">
     <div className={`messages-bubble system-${systemType}`}>
       <span className="messages-system-icon"><SystemMessageIcon systemType={systemType} /></span>
-      <p>{message.text}</p>
-      <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+      <div className="messages-system-content">
+        <p className="messages-system-label">Looton System · {systemTypeLabel(systemType)}</p>
+        <p>{message.text}</p>
+        <small>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+      </div>
     </div>
   </div>
 )
@@ -264,7 +277,7 @@ export const ReportModal = ({ reportOpen, reportReason, reportReasons, reportOth
   if (!reportOpen) return null
 
   return (
-    <div className="messages-details-modal" role="dialog" aria-modal="true" aria-label="Report user">
+    <div className="messages-details-modal messages-modal-centered" role="dialog" aria-modal="true" aria-label="Report user">
       <button className="messages-details-backdrop" type="button" aria-label="Close report" onClick={onClose} />
       <section className="messages-report card">
         <div className="messages-details-top">
