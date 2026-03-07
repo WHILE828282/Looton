@@ -2444,6 +2444,7 @@ textarea.input{
   min-height: 38px;
   max-height: 108px;
   line-height: 1.35;
+  overflow-y: hidden;
 }
 
 .messages-composer .icon-btn:not(.send-btn) svg,
