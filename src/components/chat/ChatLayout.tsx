@@ -291,32 +291,48 @@ export const ReportModal = ({ reportOpen, reportReason, reportReasons, reportOth
       <button className="messages-details-backdrop" type="button" aria-label="Close report" onClick={onClose} />
       <section className="messages-report card">
         <div className="messages-details-top">
-          <h3>Report user</h3>
+          <div className="messages-details-heading">
+            <h3>Report user</h3>
+            <p>Submit a dispute signal with clear evidence and context.</p>
+          </div>
           <button className="icon-btn" type="button" aria-label="Close report" onClick={onClose}><EllipsisVerticalIcon /></button>
         </div>
 
-        <label className="messages-details-label" htmlFor="report-reason">Report reason</label>
-        <select id="report-reason" className="input" value={reportReason} onChange={(event) => onReasonChange(event.target.value as ReportReason)}>
-          {reportReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
-        </select>
+        <div className="messages-report-section">
+          <label className="messages-details-label" htmlFor="report-reason">Report reason</label>
+          <select id="report-reason" className="input" value={reportReason} onChange={(event) => onReasonChange(event.target.value as ReportReason)}>
+            {reportReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+          </select>
+        </div>
 
         {reportReason === 'other' && (
-          <textarea className="input" rows={2} placeholder="Explain the issue" value={reportOtherReason} onChange={(event) => onOtherReasonChange(event.target.value)} />
-        )}
-
-        <label className="messages-details-label" htmlFor="report-description">Description</label>
-        <textarea id="report-description" className="input" rows={4} placeholder="Describe the issue" value={reportDetails} onChange={(event) => onDetailsChange(event.target.value)} />
-
-        <input ref={reportFileRef} className="file-input" type="file" accept="image/*" onChange={onReportFile} />
-        <button className="btn secondary messages-report-attach" type="button" onClick={onOpenUpload}><AttachmentIcon /> Attach screenshot</button>
-        {reportAttachment && (
-          <div className="messages-attachment-row">
-            <small className="attach-hint">Screenshot attached</small>
-            <button className="messages-link-btn" type="button" onClick={onRemoveAttachment}>Remove</button>
+          <div className="messages-report-section">
+            <label className="messages-details-label" htmlFor="report-other">Other reason</label>
+            <textarea id="report-other" className="input" rows={2} placeholder="Explain the issue" value={reportOtherReason} onChange={(event) => onOtherReasonChange(event.target.value)} />
           </div>
         )}
 
-        <button className="btn" type="button" disabled={!reportDetails.trim() || (reportReason === 'other' && !reportOtherReason.trim())} onClick={onSubmit}>Submit report</button>
+        <div className="messages-report-section">
+          <label className="messages-details-label" htmlFor="report-description">Description</label>
+          <textarea id="report-description" className="input" rows={4} placeholder="Describe the issue" value={reportDetails} onChange={(event) => onDetailsChange(event.target.value)} />
+        </div>
+
+        <input ref={reportFileRef} className="file-input" type="file" accept="image/*" onChange={onReportFile} />
+        <div className="messages-report-section">
+          <label className="messages-details-label">Evidence</label>
+          <button className="btn secondary messages-report-attach" type="button" onClick={onOpenUpload}><AttachmentIcon /> Attach screenshot</button>
+          {reportAttachment && (
+            <div className="messages-attachment-row report-evidence-row">
+              <small className="attach-hint">Screenshot attached</small>
+              <button className="messages-link-btn" type="button" onClick={onRemoveAttachment}>Remove</button>
+            </div>
+          )}
+        </div>
+
+        <div className="messages-report-footer">
+          <button className="btn secondary" type="button" onClick={onClose}>Cancel</button>
+          <button className="btn" type="button" disabled={!reportDetails.trim() || (reportReason === 'other' && !reportOtherReason.trim())} onClick={onSubmit}>Submit report</button>
+        </div>
       </section>
     </div>
   )
@@ -330,11 +346,16 @@ export const DetailsDrawer = ({ open, description, onClose }: DetailsDrawerProps
       <button className="messages-details-backdrop" type="button" aria-label="Close details" onClick={onClose} />
       <aside className="messages-details card">
         <div className="messages-details-top">
-          <h3>Details</h3>
+          <div className="messages-details-heading">
+            <h3>Order details</h3>
+            <p>Listing context and delivery notes for this thread.</p>
+          </div>
           <button className="icon-btn" type="button" aria-label="Close details" onClick={onClose}><EllipsisVerticalIcon /></button>
         </div>
-        <p className="messages-details-label">Description</p>
-        <div className="messages-details-description">{description}</div>
+        <div className="messages-details-body">
+          <p className="messages-details-label">Description</p>
+          <div className="messages-details-description">{description}</div>
+        </div>
       </aside>
     </div>
   )
