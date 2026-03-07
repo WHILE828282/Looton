@@ -261,16 +261,18 @@ const ConversationsColumn = ({ threads, selectedOrderId, onSelectThread }: Conve
               onClick={() => onSelectThread(thread.order.id)}
             >
               <div className="messages-thread-avatar">{thread.peer.slice(0, 1).toUpperCase()}<span className="online-dot" /></div>
-              <div className="messages-thread-meta">
-                <div className="messages-thread-row">
-                  <strong>{thread.peer}</strong>
-                  <small>{thread.time}</small>
+              <div className="messages-thread-main">
+                <div className="messages-thread-head">
+                  <strong className="messages-thread-peer">{thread.peer}</strong>
+                  <div className="messages-thread-side">
+                    <small className="messages-thread-time">{thread.time}</small>
+                    {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
+                  </div>
                 </div>
-                <p>{thread.preview}</p>
-                <div className="messages-thread-row">
-                  <small>{thread.title}</small>
+                <p className="messages-thread-preview">{thread.preview}</p>
+                <div className="messages-thread-foot">
+                  <small className="messages-thread-title">{thread.title}</small>
                   <span className={`messages-thread-status ${thread.hasDispute ? 'dispute' : ''}`}>{thread.hasDispute ? 'Dispute' : thread.orderStatus.split('_').join(' ')}</span>
-                  {thread.unreadCount > 0 && <span className="messages-unread">{thread.unreadCount}</span>}
                 </div>
               </div>
             </button>
