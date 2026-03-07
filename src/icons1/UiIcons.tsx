@@ -11,7 +11,13 @@ export const SearchIcon = () => <IconBase><circle cx="11" cy="11" r="8" /><path 
 export const MoonIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3a7.5 7.5 0 1 0 9 9A9 9 0 1 1 12 3" /></svg>
 export const EllipsisVerticalIcon = () => <IconBase><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></IconBase>
 export const SendIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-export const SendArrowIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 15.5V8.5" stroke="white" strokeWidth="1.8" strokeLinecap="round"/><path d="M8.75 11.75L12 8.5L15.25 11.75" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+export const SendArrowIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M12 15.2V8.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    <path d="M8.9 11.9L12 8.8L15.1 11.9" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 export const AttachmentIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21.44 11.05 12.25 20.24a6.25 6.25 0 0 1-8.84-8.84L13.3 1.51a4.18 4.18 0 1 1 5.9 5.9l-9.54 9.54a2.08 2.08 0 1 1-2.94-2.94l8.83-8.83" /></svg>
 export const ReportIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 4v16" /><path d="M4 5h11l-2.2 4L15 13H4" /></svg>
 export const BlockIcon = ({ className }: { className?: string }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M8.5 15.5 15.5 8.5" /></svg>

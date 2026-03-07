@@ -2198,7 +2198,7 @@ textarea.input{
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 0;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -2211,8 +2211,8 @@ textarea.input{
 
 .messages-head-actions{
   display: flex;
-  align-items: flex-end;
-  flex-direction: column;
+  align-items: center;
+  flex-direction: row;
   gap: 8px;
   margin-left: auto;
   position: relative;
@@ -2221,7 +2221,7 @@ textarea.input{
 .messages-chat-scroll{
   display: grid;
   align-content: start;
-  padding: 16px 16px 132px;
+  padding: 16px 16px 14px;
   overflow-y: auto;
   min-height: 0;
   background: linear-gradient(180deg, rgba(15,23,42,.12), rgba(2,6,23,0));
@@ -2246,18 +2246,21 @@ textarea.input{
 }
 
 .messages-bubble-wrap{
-  display: grid;
-  justify-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
+  width: 100%;
 }
 
 .messages-bubble-wrap.mine{
-  justify-items: end;
+  align-items: flex-end;
 }
 
 .messages-bubble-wrap.system-wrap{
-  justify-items: stretch;
+  align-items: flex-start;
   padding-left: 30px;
+  width: 100%;
 }
 
 .messages-sender-name{
@@ -2269,7 +2272,7 @@ textarea.input{
 }
 
 .messages-bubble{
-  max-width: min(78%, 560px);
+  max-width: min(74%, 520px);
   display: grid;
   gap: 6px;
   border-radius: 15px;
@@ -2281,7 +2284,7 @@ textarea.input{
 .messages-bubble.buyer{ margin-left: auto; background: rgba(30,58,138,0.34); }
 .messages-bubble.seller{ margin-right: auto; background: rgba(15,23,42,0.85); }
 .messages-bubble.arb,
-.messages-bubble.system{ max-width: 92%; background: rgba(55,65,81,0.46); }
+.messages-bubble.system{ max-width: min(84%, 620px); background: rgba(55,65,81,0.46); }
 
 .messages-timeline-card{
   max-width: min(86%, 640px);
@@ -2375,15 +2378,18 @@ textarea.input{
   position: relative;
   min-height: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .messages-composer-overlay{
-  position: absolute;
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
-  padding: 0 10px 10px;
-  pointer-events: none;
+  padding: 8px 10px 10px;
+  margin-top: auto;
+  background: linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.8) 48%, rgba(2,6,23,.92));
+  backdrop-filter: blur(4px);
+  z-index: 2;
 }
 
 .messages-composer{
@@ -2398,6 +2404,15 @@ textarea.input{
   backdrop-filter: blur(10px);
   box-shadow: 0 -12px 28px rgba(2,6,23,0.35);
   pointer-events: auto;
+}
+
+.messages-composer .send-btn{
+  color: #cfe3ff;
+}
+
+.messages-composer .send-btn:hover{
+  color: #e2eeff;
+  background: rgba(59,130,246,0.16);
 }
 
 .messages-compose-input-wrap{ display: grid; gap: 4px; }
